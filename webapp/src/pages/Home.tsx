@@ -35,7 +35,7 @@ export function Home() {
     <>
       <div className="hero-pf">
         <h1 className="pf-h1">Создавай всё,<br />что можешь представить.</h1>
-        <p className="pf-lead">Изображения, видео и озвучка — в одном месте. Выбирайте лучшие AI-модели и получайте результат за секунды.</p>
+        <p className="pf-lead">Изображения, видео и озвучка в одном месте. Лучшие AI-модели — результат за секунды.</p>
       </div>
 
       <div className="composer">
@@ -45,23 +45,22 @@ export function Home() {
         </div>
         <textarea value={prompt} maxLength={kind === "audio" ? 2000 : 500} onChange={(e) => setPrompt(e.target.value)}
           placeholder={kind === "audio" ? "Введите текст для озвучки..." : "Опишите, что хотите создать..."} aria-label="Описание" />
-        <div className="comp-row">
+        <div className="comp-tools">
           {kind !== "audio" && <button className="btn outline" onClick={() => nav.go({ name: "create", kind, prompt })}><Icon name="upload" size={17} />Загрузить изображение</button>}
           {kind !== "audio" && <button className="btn outline" onClick={() => nav.go({ name: "create", kind, prompt })}><Icon name="image" size={17} />Добавить референс</button>}
           <button className="btn outline" onClick={() => nav.go({ name: "models", kind })}><Icon name="layers" size={17} />Выбрать модель</button>
-          <span className="grow" />
-          <button className="btn orange" onClick={() => nav.go({ name: "create", kind, prompt })}>Создать</button>
         </div>
+        <button className="btn orange block" onClick={() => nav.go({ name: "create", kind, prompt })}>Создать</button>
         <div className="cost-line">Стоимость: <b>12 токенов</b> <span style={{ opacity: 0.7 }}>· точная цена зависит от модели</span></div>
       </div>
 
       {h?.demo && (
-        <div className="demo-note"><Icon name="info" size={18} /><span>Работает демо-режим: результаты создаются локально и помечены как демонстрационные. Реальные AI-модели подключаются через настройки сервера.</span></div>
+        <div className="demo-note"><Icon name="info" size={18} /><span>Демо-режим: результаты создаются локально и помечены как демонстрационные.</span></div>
       )}
 
       <section className="pf-sec">
         <h2 className="pf-h2">Быстрые действия</h2>
-        <div className="qa-grid">
+        <div className="qa-grid qa-rail">
           {(meta.data?.quick_actions ?? []).map((q, i) => {
             const a = q.action;
             return (

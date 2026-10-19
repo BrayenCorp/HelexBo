@@ -156,7 +156,7 @@ export function Studio({ init }: { init: CreateRoute }) {
     <>
       {item && <Back onClick={nav.back} />}
       <Hdr title={title} text={lead} />
-      {me.modes.ai === "mock" && <div className="demo-note"><Icon name="info" size={18} /><span>Демо-режим: результат создаётся локально и помечается как демонстрационный. Настоящие модели подключаются позже.</span></div>}
+      {me.modes.ai === "mock" && <div className="demo-note"><Icon name="info" size={18} /><span>Демо-режим: результат создаётся локально и помечается как демонстрационный.</span></div>}
       <div className="editor">
         <div className="panel">
           {free && (
@@ -232,22 +232,22 @@ export function Studio({ init }: { init: CreateRoute }) {
             <>
               <div className="fld"><span className="lbl">Соотношение сторон</span>
                 <Pills value={params.format ?? "1:1"} options={RATIOS.filter((r) => !(videoK && r === "21:9")).map((r) => [r, r] as [string, string])} onChange={(v) => set({ format: v })} /></div>
-              <div className="fld"><span className="lbl">Разрешение</span>
-                <Pills value={params.resolution ?? ""} options={[["", "Авто"], ...(videoK ? RES_VID : RES_IMG).map((r) => [r, r.toUpperCase()] as [string, string])]} onChange={(v) => set({ resolution: v || undefined })} /></div>
-              {videoK && <div className="fld"><span className="lbl">Длительность</span>
-                <Pills value={params.duration ?? ""} options={[["", "Авто"], ...DURS.map((d) => [d, `${d} с`] as [string, string])]} onChange={(v) => set({ duration: v || undefined })} /></div>}
-              {!videoK && (
-                <div className="fld"><span className="lbl">Количество результатов</span>
-                  <Pills value={String(count)} options={Array.from({ length: Math.min(me.max_variants, 4) }, (_, i) => [String(i + 1), String(i + 1)] as [string, string])} onChange={(v) => setCount(Number(v))} /></div>
-              )}
-              <div className="fld"><span className="lbl">Качество</span>
-                <Pills value={params.quality ?? "standard"} options={[["standard", "Стандарт"], ["high", "Высокое"]]} onChange={(v) => set({ quality: v })} /></div>
-              <div className="fld"><span className="lbl">Стиль</span>
-                <Pills value={params.style ?? ""} options={STYLES} onChange={(v) => set({ style: v || undefined })} /></div>
               <div className="adv">
-                <button type="button" onClick={() => setAdvanced(!advanced)}>Дополнительные параметры<Icon name="chevron-down" size={18} /></button>
+                <button type="button" onClick={() => setAdvanced(!advanced)}>Все параметры<Icon name="chevron-down" size={18} /></button>
                 {advanced && (
                   <div>
+                    <div className="fld"><span className="lbl">Разрешение</span>
+                <Pills value={params.resolution ?? ""} options={[["", "Авто"], ...(videoK ? RES_VID : RES_IMG).map((r) => [r, r.toUpperCase()] as [string, string])]} onChange={(v) => set({ resolution: v || undefined })} /></div>
+                    {videoK && <div className="fld"><span className="lbl">Длительность</span>
+                <Pills value={params.duration ?? ""} options={[["", "Авто"], ...DURS.map((d) => [d, `${d} с`] as [string, string])]} onChange={(v) => set({ duration: v || undefined })} /></div>}
+                    {!videoK && (
+                            <div className="fld"><span className="lbl">Количество результатов</span>
+                  <Pills value={String(count)} options={Array.from({ length: Math.min(me.max_variants, 4) }, (_, i) => [String(i + 1), String(i + 1)] as [string, string])} onChange={(v) => setCount(Number(v))} /></div>
+                    )}
+                    <div className="fld"><span className="lbl">Качество</span>
+                <Pills value={params.quality ?? "standard"} options={[["standard", "Стандарт"], ["high", "Высокое"]]} onChange={(v) => set({ quality: v })} /></div>
+                    <div className="fld"><span className="lbl">Стиль</span>
+                <Pills value={params.style ?? ""} options={STYLES} onChange={(v) => set({ style: v || undefined })} /></div>
                     <div className="fld"><label htmlFor="sd">Случайное зерно</label>
                       <input id="sd" inputMode="numeric" placeholder="Пусто — случайное" value={params.seed ?? ""} onChange={(e) => set({ seed: e.target.value === "" ? undefined : Math.max(0, Math.min(2147483647, Number(e.target.value.replace(/\D/g, "")))) })} /></div>
                     <div className="fld"><label htmlFor="ng">Чего не должно быть</label>

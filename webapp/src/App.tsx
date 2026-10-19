@@ -43,6 +43,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [stack, setStack] = useState<Route[]>([{ name: "home" }]);
   const [menu, setMenu] = useState(false);
+  const [quick, setQuick] = useState(false);
   const [search, setSearch] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const route = stack[stack.length - 1];
@@ -53,9 +54,9 @@ export default function App() {
   useEffect(() => { document.documentElement.dataset.theme = route.name === "admin" ? "light" : "dark"; }, [route.name]);
 
   const nav: Nav = useMemo(() => ({
-    go: (r) => { setMenu(false); setStack((s) => [...s, r]); window.scrollTo(0, 0); },
+    go: (r) => { setMenu(false); setQuick(false); setStack((s) => [...s, r]); window.scrollTo(0, 0); },
     replace: (r) => { setStack((s) => [...s.slice(0, -1), r]); window.scrollTo(0, 0); },
-    reset: (r) => { setMenu(false); setStack([r]); window.scrollTo(0, 0); },
+    reset: (r) => { setMenu(false); setQuick(false); setStack([r]); window.scrollTo(0, 0); },
     back: () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)),
   }), []);
 
@@ -160,11 +161,22 @@ export default function App() {
 
         <nav className="pf-bottom" aria-label="Разделы">
           {bottom("home", "Главная", "home", { name: "home" }, ["home"])}
-          {bottom("create", "Создать", "sparkle", { name: "create" }, ["create", "tool"])}
           {bottom("history", "История", "clock", { name: "history" }, ["history", "order"])}
+          <span className="fab-slot"><button className="fab" onClick={() => setQuick(true)} aria-label="Создать"><Icon name="plus" size={26} /></button></span>
           {bottom("profile", "Профиль", "user", { name: "profile" }, ["profile", "settings", "security", "balance", "payments", "integrations"])}
-          <button onClick={() => setMenu(true)}><Icon name="menu" size={22} /><span>Ещё</span></button>
+          <button className={["create", "tool", "models", "effects", "trends", "photoshoots", "avatars", "prompts", "marketing"].includes(route.name) ? "on" : ""} onClick={() => setMenu(true)}><Icon name="menu" size={22} /><span>Ещё</span></button>
         </nav>
+
+        {quick && (
+          <Sheet title="Что создаём?" onClose={() => setQuick(false)}>
+            <div className="quick-pick">
+              {([["photo", "Изображение", "По описанию или фото", "image"], ["video", "Видео", "По описанию или из фото", "video"], ["audio", "Аудио", "Озвучка текста голосом", "audio"]] as const).map(([k, t, d, ic]) => (
+                <button key={k} onClick={() => nav.go({ name: "create", kind: k })}><Icon name={ic} size={22} /><span className="grow"><b>{t}</b><span>{d}</span></span><Icon name="chevron" size={16} /></button>
+              ))}
+              <button onClick={() => nav.go({ name: "effects" })}><Icon name="wand" size={22} /><span className="grow"><b>Эффекты и инструменты</b><span>Раскадровка, ракурсы, примерка</span></span><Icon name="chevron" size={16} /></button>
+            </div>
+          </Sheet>
+        )}
 
         {menu && (
           <Sheet title="Разделы" onClose={() => setMenu(false)}>
