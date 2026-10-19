@@ -45,6 +45,20 @@ def create_payment(db: Database, user_id: int, package_id: str, provider: str) -
     return dict(row)
 
 
+DEMO_METHODS = {"card": "Карта", "sbp": "СБП", "crypto": "Криптовалюта"}
+
+
+def demo_payment(db: Database, user_id: int, package_id: str, method: str) -> tuple[dict, bool]:
+    """ДЕМО-оплата: реальных денег нет. Создаёт платёж провайдера «test» (в выручку он не попадает) и сразу подтверждает его.
+    Токены начисляются через тот же журнал, что и при настоящей оплате, поэтому баланс и история честные."""
+    if method not in DEMO_METHODS:
+        raise DomainError("Неизвестный способ оплаты", code="bad_method")
+    pay = create_payment(db, user_id, package_id, "test")
+    with db.tx() as conn:
+        conn.execute("UPDATE payments SET demo_method = ? WHERE id = ?", (method, pay["id"]))
+    return confirm_payment(db, pay["payload"], provider="test", user_id=user_id)
+
+
 def get_by_payload(db: Database, payload: str) -> dict | None:
     with db.read() as conn:
         row = conn.execute("SELECT * FROM payments WHERE payload = ?", (payload,)).fetchone()
@@ -92,7 +106,7 @@ def confirm_payment(
 def list_user_payments(db: Database, user_id: int, limit: int = 50) -> list[dict]:
     with db.read() as conn:
         rows = conn.execute(
-            "SELECT p.id, p.credits, p.bonus, p.amount_stars, p.amount, p.currency, p.provider, p.status, p.created_at, p.paid_at, k.title AS package "
+            "SELECT p.id, p.credits, p.bonus, p.amount_stars, p.amount, p.currency, p.provider, p.demo_method, p.status, p.created_at, p.paid_at, k.title AS package "
             "FROM payments p JOIN packages k ON k.id = p.package_id WHERE p.user_id = ? AND p.status = 'paid' "
             "ORDER BY p.id DESC LIMIT ?", (user_id, limit)
         ).fetchall()

@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Callable
 
 
 class ProviderError(Exception):
-    """Техническая ошибка провайдера — заказ провалится, кредиты вернутся."""
+    """Техническая ошибка провайдера — заказ провалится, токены вернутся."""
 
 
 class ProviderNotConfigured(ProviderError):
@@ -15,23 +16,27 @@ class ProviderNotConfigured(ProviderError):
 @dataclass(frozen=True)
 class GenerationRequest:
     order_id: int
-    kind: str  # photo | video
+    kind: str  # photo | video | audio
     model: str
     prompt: str
     title: str
     image: bytes  # очищенное JPEG-фото; пустые байты — генерация без фото
     params: dict = field(default_factory=dict)  # формат, качество и т. д. (уже добавлены в prompt текстом)
+    image2: bytes = b""  # второе изображение: референс или одежда
+    tool: str = ""  # особый инструмент: storyboard | angles | tryon | ...
+    progress: Callable[[str], None] | None = None  # провайдер сообщает этапы: creating | processing | almost
 
 
 @dataclass(frozen=True)
 class GenerationResult:
     data: bytes
-    ext: str  # jpg | gif | mp4
+    ext: str  # jpg | gif | mp4 | wav
     mime: str
     provider: str
     cost_usd: float = 0.0
     is_stub: bool = False  # True — это НЕ настоящая генерация
-    duration_sec: int | None = None  # длительность видео
+    duration_sec: int | None = None  # длительность видео или аудио
+    frames: tuple = ()  # ((подпись, jpeg-байты), ...) — кадры раскадровки / ракурсы
 
 
 class Provider:

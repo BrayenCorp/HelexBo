@@ -5,7 +5,7 @@ export type IconName =
   | "image" | "trash" | "check" | "close" | "settings" | "help" | "card" | "info" | "lock" | "bell" | "film"
   | "flame" | "man" | "woman" | "child" | "family" | "clock" | "download" | "share" | "crown" | "bolt" | "palette"
   | "refresh" | "sliders" | "video" | "menu" | "logout" | "copy" | "chevron-down" | "diamond"
-  | "camera" | "edit" | "upload" | "users" | "chart" | "layers" | "tag" | "bug" | "list" | "shield" | "wand" | "send";
+  | "camera" | "edit" | "upload" | "users" | "chart" | "layers" | "tag" | "bug" | "list" | "shield" | "wand" | "send" | "audio" | "plug" | "eye" | "key" | "megaphone" | "stack";
 
 /** Набор линейных иконок в одном стиле (24×24, штрих 1.8). */
 export function Icon({ name, size = 22, fill = false, className }: IconProps) {
@@ -63,6 +63,12 @@ export function Icon({ name, size = 22, fill = false, className }: IconProps) {
     case "logout": return <svg {...common}><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" /></svg>;
     case "copy": return <svg {...common}><rect x="8.5" y="8.5" width="11" height="11" rx="2" /><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" /></svg>;
     case "diamond": return <svg {...common}><path d="M12 3.5 20.5 12 12 20.5 3.5 12z" /></svg>;
+    case "audio": return <svg {...common}><rect x="9" y="3.5" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" /></svg>;
+    case "plug": return <svg {...common}><path d="M9 3.5v5M15 3.5v5M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0zM12 17v3.5" /></svg>;
+    case "eye": return <svg {...common}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.8" /></svg>;
+    case "key": return <svg {...common}><circle cx="8" cy="15" r="3.5" /><path d="m10.5 12.5 8-8M15.5 7.5l2.5 2.5M13 10l2 2" /></svg>;
+    case "megaphone": return <svg {...common}><path d="M4 10v4h3l8 4V6L7 10zM18.5 9.5a4 4 0 0 1 0 5" /></svg>;
+    case "stack": return <svg {...common}><rect x="4" y="4" width="16" height="6" rx="1.8" /><rect x="4" y="14" width="16" height="6" rx="1.8" /></svg>;
     case "send": return <svg {...common}><path d="M20 4 10 14M20 4l-6.5 16-3.5-6-6-3.5z" /></svg>;
   }
 }

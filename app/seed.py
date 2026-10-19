@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .db import Database, now
 
-SEED_VERSION = "5"
+SEED_VERSION = "6"
 
 # (slug, название)
 CATEGORIES = [
@@ -361,6 +361,77 @@ def _seed_v5(conn, ts: str) -> None:
     _replace_old_texts(conn)
 
 
+# ---------- версия 6: платформа (модели, эффекты, тренды, фотосессии, промпты, маркетинг, аватары, аудио) ----------
+def _seed_v6(conn, ts: str) -> None:
+    import json
+
+    from . import catalog_data as cd
+
+    # Прежние три «модели» (версия 5) скрываются, а не удаляются: на них могут ссылаться старые заказы.
+    conn.execute("UPDATE ai_models SET is_active = 0 WHERE slug = '' AND name IN ('Фото · реализм', 'Видео · стандарт', 'Видео · премиум')")
+    for i, (slug, name, kind, tags, desc, purpose, aud, key, price) in enumerate(cd.MODELS):
+        if conn.execute("SELECT 1 FROM ai_models WHERE slug = ?", (slug,)).fetchone():
+            continue
+        all_tags = list(tags)
+        if slug in cd.MODEL_NEEDS_IMAGE:
+            all_tags.append("in:image")
+        if slug in cd.MODEL_TEXT_ONLY:
+            all_tags.append("in:text")
+        conn.execute(
+            "INSERT INTO ai_models (name, slug, kind, tags, description, purpose, audience, provider_key, price_credits, is_active, sort_order, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            (name, slug, kind, json.dumps(all_tags), desc, purpose, aud, key, price, (i + 1) * 10, ts))
+
+    def put(slug, title, desc, section, tag, kind, model, prompt, price, popular=0, tool="", required=(), supported=(), trend=0, order=0):
+        if conn.execute("SELECT 1 FROM templates WHERE slug = ?", (slug,)).fetchone():
+            return
+        conn.execute(
+            "INSERT INTO templates (slug, title, description, category, kind, model, prompt, emoji, price_credits, is_published, is_popular, is_trend, "
+            "section, tag, tool, required, supported_models, sort_order, created_at, updated_at) "
+            "VALUES (?, ?, ?, 'trends', ?, ?, ?, '✦', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (slug, title, desc, kind, model, prompt, price, popular, trend, section, tag, tool, json.dumps(list(required)),
+             json.dumps(list(supported), ensure_ascii=False), order, ts, ts))
+
+    prov = {"photo": "image-default", "video": "video-default", "audio": "audio-default"}
+    for i, (slug, title, desc, tag, kind, tool, req, price, pop) in enumerate(cd.EFFECTS):
+        put(slug, title, desc, "effect", tag, kind, prov[kind], cd.EFFECT_PROMPTS[tool], price, pop, tool, req, order=(i + 1) * 10)
+    for i, (slug, title, desc, tag, kind, prompt, price, pop) in enumerate(cd.TRENDS):
+        put(slug, title, desc, "trend", tag, kind, prov[kind], prompt, price, pop, required=["person"], trend=1, order=(i + 1) * 10)
+    for i, (slug, title, desc, tag, prompt, price, pop) in enumerate(cd.PHOTOSHOOTS):
+        put(slug, title, desc, "photoshoot", tag, "photo", "image-default", prompt, price, pop, required=["person"], order=(i + 1) * 10)
+    for i, (slug, title, tag, text, models) in enumerate(cd.PROMPTS):
+        put(slug, title, text, "prompt", tag, "photo", "image-default", text, 0, 0, supported=models, order=(i + 1) * 10)
+    for i, (slug, title, desc, tag, kind, req, price, fmt) in enumerate(cd.MARKETING_TOOLS):
+        put(slug, title, desc, "mtool", tag, kind, prov[kind], desc, price, 0, "marketing:" + fmt, req, order=(i + 1) * 10)
+    for i, (slug, title, desc, tag, kind, prompt, price) in enumerate(cd.MARKETING_TEMPLATES):
+        put(slug, title, desc, "marketing", tag, kind, prov[kind], prompt, price, 0, required=["product"] if kind == "photo" else ["idea"], order=(i + 1) * 10)
+    for i, (slug, title, tag, prompt) in enumerate(cd.AVATAR_SCENES):
+        put(slug, title, prompt, "avatar", tag, "photo", "image-default", prompt + ", keep the face recognizable", 16, 0, "avatar", ["avatar"], order=(i + 1) * 10)
+
+    if conn.execute("SELECT 1 FROM templates WHERE slug = '__free_audio'").fetchone() is None:
+        conn.execute(
+            "INSERT INTO templates (slug, title, description, category, kind, model, prompt, emoji, price_credits, is_published, is_system, sort_order, created_at, updated_at) "
+            "VALUES ('__free_audio', 'Свободное аудио', 'Озвучка текста', 'trends', 'audio', 'audio-default', '', '✦', 10, 1, 1, 9999, ?, ?)", (ts, ts))
+
+    # Пакеты токенов: прежние (детская версия) скрываются, новые — с демо-ценами.
+    if conn.execute("SELECT 1 FROM packages WHERE id = 'start'").fetchone() is None:
+        conn.execute("UPDATE packages SET is_active = 0 WHERE id IN ('p10', 'p30', 'p100')")
+        for pid, title, credits, bonus, stars, rub, badge, sort in cd.PACKAGES:
+            conn.execute("INSERT INTO packages (id, title, credits, bonus, price_stars, price_rub, badge, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                         (pid, title, credits, bonus, stars, rub, badge, sort))
+    conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('frame_regen_price', '4')")
+
+
+def apply_welcome_default(db: Database, amount: int) -> None:
+    """Один раз при обновлении до платформы: если стартовый бонус не задавали (0), включаем его (WELCOME_BONUS в .env).
+    Дальше значение меняется только в админ-панели."""
+    with db.tx() as conn:
+        if conn.execute("SELECT 1 FROM settings WHERE key = 'welcome_default_v6'").fetchone():
+            return
+        conn.execute("UPDATE settings SET value = ? WHERE key = 'welcome_bonus' AND value = '0'", (str(max(0, int(amount))),))
+        conn.execute("INSERT INTO settings (key, value) VALUES ('welcome_default_v6', '1')")
+
+
 def seed_defaults(db: Database) -> None:
     ts = now()
     with db.tx() as conn:
@@ -382,4 +453,5 @@ def seed_defaults(db: Database) -> None:
         if version in (None, "2", "3"):
             _seed_v4(conn, ts)
         _seed_v5(conn, ts)
+        _seed_v6(conn, ts)
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('seed_version', ?)", (SEED_VERSION,))

@@ -1,6 +1,7 @@
 """SQLite: схема и транзакции. Бот и Mini App работают с одной и той же базой."""
 from __future__ import annotations
 
+import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS templates (
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     category TEXT NOT NULL DEFAULT 'cartoon',
-    kind TEXT NOT NULL CHECK (kind IN ('photo', 'video')),
+    kind TEXT NOT NULL CHECK (kind IN ('photo', 'video', 'audio')),
     model TEXT NOT NULL DEFAULT 'image-default',
     prompt TEXT NOT NULL DEFAULT '',
     preview_url TEXT NOT NULL DEFAULT '',
@@ -56,7 +57,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(tg_id),
     template_id INTEGER NOT NULL REFERENCES templates(id),
-    kind TEXT NOT NULL CHECK (kind IN ('photo', 'video')),
+    kind TEXT NOT NULL CHECK (kind IN ('photo', 'video', 'audio')),
     status TEXT NOT NULL CHECK (status IN ('created', 'processing', 'done', 'failed')),
     used_free INTEGER NOT NULL DEFAULT 0,
     price_credits INTEGER NOT NULL DEFAULT 0,
@@ -208,7 +209,7 @@ CREATE TABLE IF NOT EXISTS admin_audit (
 CREATE TABLE IF NOT EXISTS ai_models (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK (kind IN ('photo', 'video')),
+    kind TEXT NOT NULL CHECK (kind IN ('photo', 'video', 'audio')),
     description TEXT NOT NULL DEFAULT '',
     purpose TEXT NOT NULL DEFAULT '',
     audience TEXT NOT NULL DEFAULT '',
@@ -255,6 +256,32 @@ CREATE TABLE IF NOT EXISTS error_log (
     severity TEXT NOT NULL DEFAULT 'error'
 );
 
+-- Аватары пользователя: фото хранятся на диске, запись — только метаданные и статус.
+CREATE TABLE IF NOT EXISTS avatars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(tg_id),
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'analyzing', 'creating', 'ready', 'failed')),
+    photo_count INTEGER NOT NULL DEFAULT 0,
+    photos TEXT NOT NULL DEFAULT '[]',
+    cover_path TEXT,
+    error TEXT,
+    is_stub INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    ready_at TEXT
+);
+
+-- Личные токены для подключения MCP-клиентов. Хранится только хеш: сам токен показывается один раз.
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(tg_id),
+    token_hash TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    last_used_at TEXT,
+    revoked_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS orders_user_idx ON orders (user_id, id DESC);
 CREATE INDEX IF NOT EXISTS ledger_user_idx ON credit_ledger (user_id, id DESC);
 CREATE INDEX IF NOT EXISTS orders_created_idx ON orders (created_at);
@@ -262,6 +289,7 @@ CREATE INDEX IF NOT EXISTS users_created_idx ON users (created_at);
 CREATE INDEX IF NOT EXISTS payments_paid_idx ON payments (paid_at);
 CREATE INDEX IF NOT EXISTS activity_user_idx ON daily_activity (user_id, day);
 CREATE INDEX IF NOT EXISTS examples_tpl_idx ON template_examples (template_id, sort_order);
+CREATE INDEX IF NOT EXISTS avatars_user_idx ON avatars (user_id, id DESC);
 """
 
 
@@ -347,6 +375,44 @@ def _rebuild_payments(conn: sqlite3.Connection) -> None:
     del cols
 
 
+def _rebuild_table(conn: sqlite3.Connection, table: str, old: str, new: str) -> None:
+    """Пересобирает таблицу с изменённым текстом схемы (SQLite не умеет менять CHECK на месте).
+    Порядок из документации SQLite: новая таблица → копирование → удаление старой → переименование → индексы."""
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone()
+    if row is None or old not in row["sql"]:
+        return
+    ddl = row["sql"].replace(old, new)
+    ddl = re.sub(r'CREATE TABLE\s+(IF NOT EXISTS\s+)?"?%s"?' % table, f"CREATE TABLE {table}__new", ddl, count=1)
+    indexes = [r["sql"] for r in conn.execute("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL", (table,))]
+    cols = ", ".join(r["name"] for r in conn.execute(f"PRAGMA table_info({table})"))
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN")
+        try:
+            conn.execute(ddl)
+            conn.execute(f"INSERT INTO {table}__new ({cols}) SELECT {cols} FROM {table}")
+            conn.execute(f"DROP TABLE {table}")
+            conn.execute(f"ALTER TABLE {table}__new RENAME TO {table}")
+            for sql in indexes:
+                conn.execute(sql)
+            bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+            if bad:
+                raise sqlite3.IntegrityError(f"foreign_key_check после пересборки {table}: {len(bad)} нарушений")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def _allow_audio(conn: sqlite3.Connection) -> None:
+    """Старые базы допускали только photo/video. Добавляем 'audio' (данные сохраняются)."""
+    old, new = "CHECK (kind IN ('photo', 'video'))", "CHECK (kind IN ('photo', 'video', 'audio'))"
+    for table in ("templates", "orders", "ai_models"):
+        _rebuild_table(conn, table, old, new)
+
+
 def _backfill_users(conn: sqlite3.Connection) -> None:
     """Один раз при обновлении: пользователи, созданные раньше, считаются уже зарегистрированными и приветствие
     не увидят; их известные даты активности (регистрация и последний вход) заносятся в daily_activity."""
@@ -392,6 +458,21 @@ def _migrate(conn: sqlite3.Connection) -> None:
     _backfill_users(conn)
     add("categories", "description", "TEXT NOT NULL DEFAULT ''")
     add("packages", "badge", "TEXT NOT NULL DEFAULT ''")
+    # --- платформа: разделы каталога, аудио, аватары, интеграции ---
+    add("templates", "section", "TEXT NOT NULL DEFAULT 'legacy'")  # legacy | effect | trend | photoshoot | prompt | marketing | avatar
+    add("templates", "tag", "TEXT NOT NULL DEFAULT ''")  # категория внутри раздела
+    add("templates", "tool", "TEXT NOT NULL DEFAULT ''")  # особый инструмент: storyboard | angles | tryon | ...
+    add("templates", "required", "TEXT NOT NULL DEFAULT '[]'")  # какие материалы нужны (photo, photo2, text, ...)
+    add("templates", "supported_models", "TEXT NOT NULL DEFAULT '[]'")
+    add("ai_models", "slug", "TEXT NOT NULL DEFAULT ''")
+    add("ai_models", "tags", "TEXT NOT NULL DEFAULT '[]'")  # категории моделей: photoreal, art, edit, fast, hq, new, t2v ...
+    add("orders", "input2_path", "TEXT")  # второе изображение: референс, одежда
+    add("orders", "frames", "TEXT NOT NULL DEFAULT '[]'")  # кадры раскадровки / ракурсы
+    add("orders", "stage", "TEXT")  # этап, о котором сообщил провайдер
+    add("orders", "avatar_id", "INTEGER")
+    add("users", "prefs", "TEXT NOT NULL DEFAULT '{}'")
+    add("payments", "demo_method", "TEXT")
+    _allow_audio(conn)
 
 
 def init_db(db: Database, seed: bool = True) -> None:

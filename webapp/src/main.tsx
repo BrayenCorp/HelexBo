@@ -2,7 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { initTelegram } from "./telegram";
-import "./styles.css";
+import "./legacy.css";
+import "./platform.css";
 
 initTelegram();
 createRoot(document.getElementById("root")!).render(

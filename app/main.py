@@ -25,11 +25,18 @@ async def amain() -> None:
 
     db = Database(settings.database_path)
     init_db(db)
+    from .seed import apply_welcome_default
+
+    apply_welcome_default(db, settings.welcome_bonus)
     storage = Storage(settings.data_dir)
-    providers = ProviderRegistry(settings.ai_mode, settings.image_api_key, settings.video_api_key, settings.seedance_api_key)
-    runner = Runner(db, storage, providers, max_parallel=settings.max_parallel_generations, timeout=settings.generation_timeout)
+    providers = ProviderRegistry(settings.ai_mode, settings.image_api_key, settings.video_api_key, settings.seedance_api_key, settings.audio_api_key, settings.demo_delay)
+    runner = Runner(db, storage, providers, max_parallel=settings.max_parallel_generations, timeout=settings.generation_timeout,
+                    ai_mode=settings.ai_mode, demo_delay=settings.demo_delay)
     ctx = AppContext(settings, db, storage, providers, runner, AdminAccess(settings.owner_ids, settings.developer_ids))
 
+    from .services import avatars as avatars_service
+
+    avatars_service.fail_unfinished(db)
     closed = orders.fail_unfinished_orders(db, "Сервис был перезапущен во время генерации")
     if closed:
         log.warning("Закрыто %s зависших заказов (кредиты возвращены)", closed)

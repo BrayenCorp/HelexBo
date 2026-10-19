@@ -26,7 +26,7 @@ def owner_overview(db: Database, star_usd_rate: float) -> dict:
         "users": users,
         "generations": {
             kind: {s: by_kind.get((kind, s), 0) for s in ("done", "failed", "processing", "created")}
-            for kind in ("photo", "video")
+            for kind in ("photo", "video", "audio")
         },
         "free_generations_done": free_done,
         "purchases": real["n"],

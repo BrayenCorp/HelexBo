@@ -42,6 +42,9 @@ class Settings:
     image_api_key: str = ""
     video_api_key: str = ""
     seedance_api_key: str = ""
+    audio_api_key: str = ""
+    demo_delay: float = 1.0  # секунд на этап в демо-режиме (имитация обработки); 0 — мгновенно
+    welcome_bonus: int = 100  # стартовые демо-токены при обновлении, если бонус ещё не настраивали
 
     @property
     def max_upload_bytes(self) -> int:
@@ -82,6 +85,9 @@ class Settings:
             image_api_key=g("IMAGE_API_KEY", ""),
             video_api_key=g("VIDEO_API_KEY", ""),
             seedance_api_key=g("SEEDANCE_API_KEY", ""),
+            audio_api_key=g("AUDIO_API_KEY", ""),
+            demo_delay=float(g("DEMO_DELAY", "1.0")),
+            welcome_bonus=int(g("WELCOME_BONUS", "100")),
         )
         if s.ai_mode not in {"mock", "live"}:
             raise ValueError("AI_MODE должен быть mock или live")

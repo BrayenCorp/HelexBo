@@ -5,23 +5,38 @@
 пишется один раз в app/ai/external.py."""
 from __future__ import annotations
 
+import json
+
 from ..db import Database, now
 from ..errors import DomainError
 from .templates import KNOWN_MODELS
 
 
+def _tags(raw) -> list[str]:
+    try:
+        data = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        return []
+    return [t for t in data if isinstance(t, str)]
+
+
 def _public(r: dict) -> dict:
-    return {"id": r["id"], "name": r["name"], "kind": r["kind"], "description": r["description"], "purpose": r["purpose"],
+    tags = _tags(r.get("tags"))
+    return {"id": r["id"], "name": r["name"], "slug": r.get("slug", ""), "kind": r["kind"], "description": r["description"], "purpose": r["purpose"],
             "audience": [a.strip() for a in r["audience"].split(",") if a.strip()], "image_url": r["image_url"],
-            "price_credits": r["price_credits"]}
+            "price_credits": r["price_credits"], "tags": [t for t in tags if ":" not in t],
+            "needs_image": "in:image" in tags, "text_only": "in:text" in tags, "is_new": "new" in tags}
 
 
-def public_list(db: Database, kind: str | None = None) -> list[dict]:
+def public_list(db: Database, kind: str | None = None, tag: str | None = None) -> list[dict]:
     sql, args = "SELECT * FROM ai_models WHERE is_active = 1", []
     if kind:
         sql += " AND kind = ?"; args.append(kind)
     with db.read() as conn:
-        return [_public(dict(r)) for r in conn.execute(sql + " ORDER BY sort_order, id", args).fetchall()]
+        rows = [_public(dict(r)) for r in conn.execute(sql + " ORDER BY sort_order, id", args).fetchall()]
+    if tag and tag != "all":
+        rows = [r for r in rows if tag in r["tags"]]
+    return rows
 
 
 def admin_list(db: Database) -> list[dict]:
@@ -40,13 +55,22 @@ def _clean(fields: dict, partial: bool) -> dict:
     if "name" in out and not out["name"]:
         raise DomainError("Название модели не может быть пустым")
     if "kind" in fields:
-        if fields["kind"] not in ("photo", "video"):
-            raise DomainError("Тип модели: photo или video")
+        if fields["kind"] not in ("photo", "video", "audio"):
+            raise DomainError("Тип модели: photo, video или audio")
         out["kind"] = fields["kind"]
     if "provider_key" in fields:
         if fields["provider_key"] not in KNOWN_MODELS:
             raise DomainError("Неизвестный провайдер. Доступны: " + ", ".join(KNOWN_MODELS))
         out["provider_key"] = fields["provider_key"]
+    if "tags" in fields:
+        tags = fields["tags"]
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        if not isinstance(tags, list) or len(tags) > 20:
+            raise DomainError("Категории модели — список")
+        out["tags"] = json.dumps([str(t)[:30] for t in tags], ensure_ascii=False)
+    if "slug" in fields:
+        out["slug"] = str(fields["slug"]).strip()[:60]
     for key in ("price_credits", "sort_order"):
         if key in fields:
             try:

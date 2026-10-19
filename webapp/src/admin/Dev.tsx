@@ -41,7 +41,7 @@ export function Errors() {
 
 /* ---------- AI-провайдеры и модели ---------- */
 interface Prov { model: string; generations: number; ok: number; errors: number; success_rate: number | null; avg_seconds: number | null; cost_usd: number; cost_per_generation: number | null; credits: number }
-interface Model { id?: number; name: string; kind: "photo" | "video"; description: string; purpose: string; audience: string; image_url: string; provider_key: string; price_credits: number; is_active: number | boolean; sort_order: number; generations?: number }
+interface Model { id?: number; slug?: string; tags?: string; name: string; kind: "photo" | "video" | "audio"; description: string; purpose: string; audience: string; image_url: string; provider_key: string; price_credits: number; is_active: number | boolean; sort_order: number; generations?: number }
 
 function ProviderStats() {
   const { period } = usePeriod();
@@ -71,7 +71,8 @@ function Models() {
   const [del, setDel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!q.data) return q.error ? <ErrorBox message={q.error} onRetry={q.reload} /> : <Loading />;
-  const blank: Model = { name: "", kind: "photo", description: "", purpose: "", audience: "", image_url: "", provider_key: q.data.provider_keys[0], price_credits: 2, is_active: false, sort_order: (q.data.items.length + 1) * 10 };
+  const tagText = (raw?: string): string => { try { const v = JSON.parse(raw || "[]"); return Array.isArray(v) ? v.join(", ") : ""; } catch { return raw ?? ""; } };
+  const blank: Model = { slug: "", tags: "", name: "", kind: "photo", description: "", purpose: "", audience: "", image_url: "", provider_key: q.data.provider_keys[0], price_credits: 2, is_active: false, sort_order: (q.data.items.length + 1) * 10 };
   async function save() {
     if (!edit) return;
     setError(null);
@@ -89,8 +90,8 @@ function Models() {
     <>
       <div className="notice info"><p>Карточки моделей показываются на главной и в генераторе. Новая карточка добавляется здесь, без правки интерфейса. Чтобы подключить нового провайдера, его нужно один раз реализовать в коде (<code>app/ai/external.py</code>).</p></div>
       <div className="toolbar"><button className="btn orange sm" onClick={() => { setEdit({ ...blank }); setError(null); }}><Icon name="plus" size={16} /> Добавить модель</button></div>
-      <DataTable rows={q.data.items} empty="Моделей пока нет" onRow={(m) => { setEdit({ ...m }); setError(null); }} cols={[
-        { key: "name", title: "Название", render: (m) => <b>{m.name}</b> }, { key: "kind", title: "Тип", render: (m) => (m.kind === "photo" ? "Фото" : "Видео") },
+      <DataTable rows={q.data.items} empty="Моделей пока нет" onRow={(m) => { setEdit({ ...m, tags: tagText(m.tags) }); setError(null); }} cols={[
+        { key: "name", title: "Название", render: (m) => <b>{m.name}</b> }, { key: "kind", title: "Тип", render: (m) => (m.kind === "photo" ? "Фото" : m.kind === "audio" ? "Аудио" : "Видео") },
         { key: "purpose", title: "Назначение", wrap: true }, { key: "provider_key", title: "Провайдер" }, { key: "price_credits", title: "Токены", num: true },
         { key: "generations", title: "Генераций", num: true, render: (m) => nf(m.generations ?? 0) },
         { key: "is_active", title: "Статус", render: (m) => <span className={`status ${m.is_active ? "" : "off"}`}>{m.is_active ? "Активна" : "Выключена"}</span> },
@@ -103,7 +104,9 @@ function Models() {
             <Field label="Описание"><TextArea value={edit.description} onChange={(v) => setEdit({ ...edit, description: v })} rows={3} /></Field>
             <Field label="Назначение"><TextInput value={edit.purpose} onChange={(v) => setEdit({ ...edit, purpose: v })} placeholder="Например: реалистичные фото и портреты" /></Field>
             <Field label="Кому подходит (через запятую)"><TextInput value={edit.audience} onChange={(v) => setEdit({ ...edit, audience: v })} placeholder="фотографам, блогерам, бизнесу" /></Field>
-            <Field label="Тип"><SelectInput value={edit.kind} onChange={(v) => setEdit({ ...edit, kind: v as "photo" | "video" })} options={[["photo", "Фото"], ["video", "Видео"]]} /></Field>
+            <Field label="Код модели (slug)" hint="Латиницей, например nano-banana-2. Нужен для моделей по умолчанию."><TextInput value={edit.slug ?? ""} onChange={(v) => setEdit({ ...edit, slug: v })} /></Field>
+            <Field label="Категории (через запятую)" hint="Фото: photoreal, art, edit, fast, hq, new. Видео: t2v, i2v, anim, cine, motion, upscale. Аудио: voiceover, voice, ad, story, emotion. Ограничения ввода: in:image (нужно исходное изображение), in:text (только текст)."><TextInput value={edit.tags ?? ""} onChange={(v) => setEdit({ ...edit, tags: v })} /></Field>
+            <Field label="Тип"><SelectInput value={edit.kind} onChange={(v) => setEdit({ ...edit, kind: v as "photo" | "video" | "audio" })} options={[["photo", "Фото"], ["video", "Видео"], ["audio", "Аудио"]]} /></Field>
             <Field label="Провайдер" hint="Ключ готового провайдера из app/ai"><SelectInput value={edit.provider_key} onChange={(v) => setEdit({ ...edit, provider_key: v })} options={q.data!.provider_keys.map((k): [string, string] => [k, k])} /></Field>
             <Field label="Стоимость, токенов"><Stepper value={edit.price_credits} onChange={(v) => setEdit({ ...edit, price_credits: v })} /></Field>
             <Field label="Порядок"><Stepper value={edit.sort_order} onChange={(v) => setEdit({ ...edit, sort_order: v })} step={10} /></Field>

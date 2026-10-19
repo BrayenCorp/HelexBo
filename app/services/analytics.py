@@ -77,7 +77,7 @@ def overview(db: Database, s: date, e: date, star_rate: float) -> dict:
                 "returned": one("SELECT COUNT(DISTINCT a.user_id) FROM daily_activity a JOIN users u ON u.tg_id = a.user_id "
                                 "WHERE a.day BETWEEN ? AND ? AND substr(u.created_at,1,10) < ?", S, E, S),
             },
-            "generations": {"total": g(), "photo": g("photo"), "video": g("video"), "success": g(status="done"), "errors": g(status="failed"),
+            "generations": {"total": g(), "photo": g("photo"), "video": g("video"), "audio": g("audio"), "success": g(status="done"), "errors": g(status="failed"),
                             "processing": g(status="processing") + g(status="created")},
             "money": {
                 "revenue_stars": rev, "revenue_usd_estimate": round(rev * star_rate, 2), "purchases": purchases,
@@ -96,7 +96,7 @@ def series(db: Database, s: date, e: date) -> dict:
     S, E = s.isoformat(), e.isoformat()
     days = days_between(s, e)
     out = {k: dict.fromkeys(days, 0) for k in (
-        "users_new", "users_active", "users_returned", "revenue", "purchases", "photo", "video", "tokens_bought", "tokens_spent", "tokens_refunded")}
+        "users_new", "users_active", "users_returned", "revenue", "purchases", "photo", "video", "audio", "tokens_bought", "tokens_spent", "tokens_refunded")}
     with db.read() as c:
         def fill(key, sql, *a):
             for d, n in c.execute(sql, a).fetchall():
@@ -108,7 +108,7 @@ def series(db: Database, s: date, e: date) -> dict:
                                "WHERE a.day BETWEEN ? AND ? AND substr(u.created_at,1,10) < a.day GROUP BY a.day", S, E)
         fill("revenue", f"SELECT substr(p.paid_at,1,10), SUM(p.amount_stars) FROM payments p WHERE {REAL} AND substr(p.paid_at,1,10) BETWEEN ? AND ? GROUP BY 1", S, E)
         fill("purchases", f"SELECT substr(p.paid_at,1,10), COUNT(*) FROM payments p WHERE {REAL} AND substr(p.paid_at,1,10) BETWEEN ? AND ? GROUP BY 1", S, E)
-        for kind in ("photo", "video"):
+        for kind in ("photo", "video", "audio"):
             fill(kind, "SELECT substr(created_at,1,10), COUNT(*) FROM orders WHERE kind = ? AND substr(created_at,1,10) BETWEEN ? AND ? GROUP BY 1", kind, S, E)
         for key, reason, sign in (("tokens_spent", "order_charge", -1), ("tokens_refunded", "order_refund", 1)):
             for d, n in c.execute("SELECT substr(created_at,1,10), SUM(delta) FROM credit_ledger WHERE reason = ? AND substr(created_at,1,10) BETWEEN ? AND ? GROUP BY 1", (reason, S, E)):
@@ -121,7 +121,7 @@ def series(db: Database, s: date, e: date) -> dict:
     res: dict = {"days": days}
     for k, v in out.items():
         res[k] = [v[d] for d in days]
-    res["generations"] = [a + b for a, b in zip(res["photo"], res["video"])]
+    res["generations"] = [a + b + c for a, b, c in zip(res["photo"], res["video"], res["audio"])]
     res["avg_check"] = [round(r / p, 1) if p else 0 for r, p in zip(res["revenue"], res["purchases"])]
     return res
 

@@ -16,9 +16,10 @@ from pydantic import BaseModel
 from .context import AppContext
 from .errors import DomainError, Forbidden, InvalidInitData
 from .security import validate_init_data
+from . import catalog_data, mcp as mcp_server
 from .services import (
-    admin_lists, admin_users, analytics, categories, content, credits, events, exports, favorites, landing, media, methods, models, orders,
-    payments, showcase, site_settings, system, templates, users,
+    admin_lists, admin_users, analytics, api_tokens, avatars, catalog, categories, content, credits, events, exports, favorites, frames, landing,
+    media, methods, models, orders, payments, prefs, showcase, site_settings, system, templates, users,
 )
 
 log = logging.getLogger(__name__)
@@ -41,6 +42,30 @@ class FavoriteIn(BaseModel):
 
 class SettingsIn(BaseModel):
     notify_chat: bool
+
+
+class DemoPayIn(BaseModel):
+    package_id: str
+    method: str
+
+
+class PrefsIn(BaseModel):
+    ratio: str | None = None
+    quality: str | None = None
+    autodownload: bool | None = None
+    default_model_id: int | None = None
+    notify: bool | None = None
+    interests: list[str] | None = None
+    clear_model: bool = False
+
+
+class FrameIn(BaseModel):
+    index: int
+    request_id: str
+
+
+class TokenIn(BaseModel):
+    label: str = ""
 
 
 class ActionIn(BaseModel):
@@ -98,6 +123,7 @@ def create_app(ctx: AppContext) -> FastAPI:
         prof = users.profile(ctx.db, user["id"])
         prof["roles"] = ctx.access.roles(user["id"])
         prof["modes"] = {"ai": s.ai_mode, "payments": s.payments_mode}
+        prof["prefs"] = prefs.get(ctx.db, user["id"])
         prof["favorites"] = favorites.ids(ctx.db, user["id"])
         prof["bot_link"] = f"https://t.me/{ctx.bot_username}" if ctx.bot_username else ""
         prof["ref_link"] = ref_link(user["id"])
@@ -131,7 +157,7 @@ def create_app(ctx: AppContext) -> FastAPI:
         done = orders.count_done_by_kind(ctx.db, user["id"])
         return {
             "id": user["id"], "first_name": prof["first_name"], "username": prof["username"], "balance": prof["balance"], "is_pro": prof["is_pro"],
-            "generations": done["photo"] + done["video"], "images": done["photo"], "videos": done["video"], "favorites_count": len(fav["orders"]),
+            "generations": done["photo"] + done["video"] + done["audio"], "images": done["photo"], "videos": done["video"], "audios": done["audio"], "favorites_count": len(fav["orders"]),
             "support_url": site_settings.get_all(ctx.db).get("support_url", ""), "roles": ctx.access.roles(user["id"]), "ref_link": ref_link(user["id"]),
         }
 
@@ -143,7 +169,19 @@ def create_app(ctx: AppContext) -> FastAPI:
     @app.delete("/api/me/media")
     async def delete_my_media(user: dict = Depends(current_user)):
         n = await asyncio.to_thread(orders.delete_user_media, ctx.db, ctx.storage, user["id"])
+        n += await asyncio.to_thread(avatars.delete_all, ctx.db, ctx.storage, user["id"])
         return {"deleted_files": n}
+
+    @app.get("/api/me/prefs")
+    async def get_prefs(user: dict = Depends(current_user)):
+        return prefs.get(ctx.db, user["id"])
+
+    @app.put("/api/me/prefs")
+    async def put_prefs(body: PrefsIn, user: dict = Depends(current_user)):
+        data = body.model_dump(exclude_none=True)
+        if data.pop("clear_model", False):
+            data["default_model_id"] = None
+        return prefs.update(ctx.db, user["id"], data)
 
     @app.get("/api/categories")
     async def list_categories(_: dict = Depends(current_user)):
@@ -170,6 +208,111 @@ def create_app(ctx: AppContext) -> FastAPI:
     async def get_template(template_id: int, _: dict = Depends(current_user)):
         return templates.get_published(ctx.db, template_id)
 
+    # ---------- платформа: каталог, поиск, главная ----------
+    @app.get("/api/platform/meta")
+    async def platform_meta(_: dict = Depends(current_user)):
+        return catalog.meta(ctx.db)
+
+    @app.get("/api/platform/home")
+    async def platform_home(user: dict = Depends(current_user)):
+        popular = []
+        for sec in ("effect", "trend", "photoshoot", "marketing"):
+            popular += catalog.list_items(ctx.db, sec, popular=True, limit=3)
+        recent = [orders.public_order(o) for o in orders.list_user_orders(ctx.db, user["id"], 8)]
+        return {"popular": popular[:10], "trends": catalog.list_items(ctx.db, "trend", limit=8), "photoshoots": catalog.list_items(ctx.db, "photoshoot", limit=8),
+                "recent": recent, "demo": s.ai_mode == "mock"}
+
+    @app.get("/api/catalog/{section}")
+    async def catalog_list(section: str, tag: str | None = None, q: str | None = None, popular: bool = False, _: dict = Depends(current_user)):
+        return catalog.list_items(ctx.db, section, tag, q, popular)
+
+    @app.get("/api/catalog/item/{item_id}")
+    async def catalog_item(item_id: int, _: dict = Depends(current_user)):
+        return catalog.get_item(ctx.db, item_id)
+
+    @app.get("/api/catalog/slug/{slug}")
+    async def catalog_slug(slug: str, _: dict = Depends(current_user)):
+        return catalog.get_by_slug(ctx.db, slug)
+
+    @app.get("/api/search")
+    async def search(q: str = "", user: dict = Depends(current_user)):
+        return catalog.search(ctx.db, user["id"], q)
+
+    @app.get("/api/quote")
+    async def quote(kind: str | None = None, template_id: int | None = None, model_id: int | None = None, count: int = 1, user: dict = Depends(current_user)):
+        q = orders.quote(ctx.db, user["id"], template_id=template_id, kind=kind, model_id=model_id)
+        with ctx.db.read() as c:
+            count = max(1, min(count, site_settings.get_int(c, "max_variants", 4)))
+        total = (0 if q["free"] else q["base"]) + q["base"] * (count - 1)
+        bal = credits.get_balance(ctx.db, user["id"])
+        return {**q, "count": count, "total": total, "balance": bal, "enough": bal >= total}
+
+    # ---------- аватары ----------
+    @app.get("/api/avatars")
+    async def my_avatars(user: dict = Depends(current_user)):
+        return avatars.list_for_user(ctx.db, user["id"])
+
+    @app.post("/api/avatars")
+    async def create_avatar(name: str = Form(default=""), consent: bool = Form(default=False), photos: list[UploadFile] = File(default=[]),
+                            user: dict = Depends(current_user)):
+        files = [await f.read(s.max_upload_bytes + 1) for f in photos]
+        row = await asyncio.to_thread(avatars.create, ctx.db, ctx.storage, user["id"], name, files, consent, s.max_upload_bytes)
+        ctx.runner.schedule_avatar(row["id"])
+        return avatars.public(row)
+
+    @app.get("/api/avatars/{avatar_id}")
+    async def one_avatar(avatar_id: int, user: dict = Depends(current_user)):
+        return avatars.public(avatars.get_owned(ctx.db, user["id"], avatar_id))
+
+    @app.get("/api/avatars/{avatar_id}/cover")
+    async def avatar_cover(avatar_id: int, user: dict = Depends(current_user)):
+        return FileResponse(avatars.cover_file(ctx.db, user["id"], avatar_id), media_type="image/jpeg")
+
+    @app.delete("/api/avatars/{avatar_id}")
+    async def delete_avatar(avatar_id: int, user: dict = Depends(current_user)):
+        await asyncio.to_thread(avatars.delete, ctx.db, ctx.storage, user["id"], avatar_id)
+        return {"deleted": True}
+
+    # ---------- интеграции (MCP) ----------
+    @app.get("/api/integrations")
+    async def integrations(user: dict = Depends(current_user)):
+        return {"endpoint": f"{s.webapp_url}/mcp" if s.webapp_url else "/mcp", "clients": [{"name": n, "how": h} for n, h in catalog_data.MCP_CLIENTS],
+                "tools": [{"name": n, "title": t, "description": d} for n, t, d in catalog_data.MCP_TOOLS], "tokens": api_tokens.list_for_user(ctx.db, user["id"])}
+
+    @app.post("/api/integrations/tokens")
+    async def create_token(body: TokenIn, user: dict = Depends(current_user)):
+        return api_tokens.create(ctx.db, user["id"], body.label)
+
+    @app.delete("/api/integrations/tokens/{token_id}")
+    async def revoke_token(token_id: int, user: dict = Depends(current_user)):
+        api_tokens.revoke(ctx.db, user["id"], token_id)
+        return {"revoked": True}
+
+    async def mcp_user(authorization: str = Header(default="")) -> int:
+        uid = api_tokens.authenticate(ctx.db, authorization[7:].strip()) if authorization.lower().startswith("bearer ") else None
+        if uid is None:
+            raise InvalidInitData("Нужен личный токен: Authorization: Bearer <токен>")
+        return uid
+
+    @app.post("/mcp")
+    async def mcp_endpoint(request: Request, uid: int = Depends(mcp_user)):
+        try:
+            payload = await request.json()
+        except ValueError:
+            return JSONResponse(status_code=400, content={"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Некорректный JSON"}})
+        if isinstance(payload, list):
+            out = [r for r in [await mcp_server.handle(ctx, uid, m) for m in payload if isinstance(m, dict)] if r is not None]
+            return JSONResponse(out) if out else Response(status_code=202)
+        res = await mcp_server.handle(ctx, uid, payload if isinstance(payload, dict) else {})
+        return JSONResponse(res) if res is not None else Response(status_code=202)
+
+    @app.get("/mcp/result/{order_id}")
+    async def mcp_result(order_id: int, uid: int = Depends(mcp_user)):
+        o = orders.get_user_order(ctx.db, uid, order_id)
+        if o is None or o["status"] != "done" or not o["result_path"] or not Path(o["result_path"]).exists():
+            raise DomainError("Результат не найден", code="result_not_found", status=404)
+        return FileResponse(o["result_path"], media_type=o["result_mime"] or "application/octet-stream")
+
     # ---------- избранное ----------
     @app.get("/api/favorites")
     async def my_favorites(user: dict = Depends(current_user)):
@@ -184,16 +327,18 @@ def create_app(ctx: AppContext) -> FastAPI:
     async def create_order(
         request_id: str = Form(...), template_id: int | None = Form(default=None), kind: str = Form(default=""),
         prompt: str = Form(default=""), params: str = Form(default=""), style: str = Form(default=""),
-        model_id: int | None = Form(default=None), count: int = Form(default=1),
-        photo: UploadFile | None = File(default=None), user: dict = Depends(current_user),
+        model_id: int | None = Form(default=None), count: int = Form(default=1), avatar_id: int | None = Form(default=None),
+        ref_order_id: int | None = Form(default=None),
+        photo: UploadFile | None = File(default=None), photo2: UploadFile | None = File(default=None), user: dict = Depends(current_user),
     ):
         """Два режима: по шаблону (template_id) и свободный (kind + prompt [+ model_id]). Фото необязательно."""
         data = await photo.read(s.max_upload_bytes + 1) if photo is not None else None
+        data2 = await photo2.read(s.max_upload_bytes + 1) if photo2 is not None else None
         results = await asyncio.to_thread(
             lambda: orders.submit_variants(
                 ctx.db, ctx.storage, count=count, user_id=user["id"], request_id=request_id, source="app", template_id=template_id,
                 kind=kind or None, image_bytes=data, prompt=prompt, params=params or None, max_bytes=s.max_upload_bytes,
-                style=style or None, model_id=model_id))
+                style=style or None, model_id=model_id, image2_bytes=data2, avatar_id=avatar_id, ref_order_id=ref_order_id))
         for order, created in results:
             if created:
                 ctx.runner.schedule(order["id"])
@@ -203,7 +348,7 @@ def create_app(ctx: AppContext) -> FastAPI:
 
     @app.get("/api/orders")
     async def my_orders(user: dict = Depends(current_user)):
-        return [orders.public_order(o) for o in orders.list_user_orders(ctx.db, user["id"])]
+        return [orders.public_order(o) for o in orders.list_user_orders(ctx.db, user["id"], 200)]
 
     @app.get("/api/orders/{order_id}")
     async def my_order(order_id: int, user: dict = Depends(current_user)):
@@ -218,6 +363,20 @@ def create_app(ctx: AppContext) -> FastAPI:
         if o is None or o["status"] != "done" or not o["result_path"] or not Path(o["result_path"]).exists():
             raise DomainError("Результат не найден", code="result_not_found", status=404)
         return FileResponse(o["result_path"], media_type=o["result_mime"] or "application/octet-stream")
+
+    @app.get("/api/orders/{order_id}/frames/{index}")
+    async def order_frame(order_id: int, index: int, user: dict = Depends(current_user)):
+        o = orders.get_user_order(ctx.db, user["id"], order_id)
+        path = orders.frame_path(o, index) if o else None
+        if not path or not Path(path).exists():
+            raise DomainError("Кадр не найден", code="result_not_found", status=404)
+        return FileResponse(path, media_type="image/jpeg")
+
+    @app.post("/api/orders/{order_id}/regen-frame")
+    async def regen_frame(order_id: int, body: FrameIn, user: dict = Depends(current_user)):
+        order = await asyncio.to_thread(frames.regen_frame, ctx.db, ctx.storage, ctx.providers, user_id=user["id"], order_id=order_id,
+                                        index=body.index, request_id=body.request_id)
+        return {"order": order, "balance": credits.get_balance(ctx.db, user["id"]), "price": frames.regen_price(ctx.db)}
 
     @app.delete("/api/orders/{order_id}")
     async def delete_order(order_id: int, user: dict = Depends(current_user)):
@@ -276,6 +435,14 @@ def create_app(ctx: AppContext) -> FastAPI:
                 title=f"{pkg['title']}: {pkg['credits'] + pkg['bonus']} токенов", description="Токены для создания фото и видео в Nolla AI",
                 payload=pay["payload"], currency="XTR", provider_token="", prices=[LabeledPrice(label=pkg["title"], amount=pay["amount_stars"])])
         return {"payment_id": pay["id"], "payload": pay["payload"], "mode": method, "invoice_link": link}
+
+    @app.post("/api/payments/demo")
+    async def demo_pay(body: DemoPayIn, user: dict = Depends(current_user)):
+        """ДЕМО-оплата без реальных денег (только при PAYMENTS_MODE=test)."""
+        if s.payments_mode != "test":
+            raise Forbidden("Демо-оплата отключена")
+        pay, credited = payments.demo_payment(ctx.db, user["id"], body.package_id, body.method)
+        return {"status": pay["status"], "credited": credited, "tokens": pay["credits"] + pay["bonus"], "balance": credits.get_balance(ctx.db, user["id"])}
 
     @app.post("/api/payments/test-confirm")
     async def test_confirm(body: PayloadIn, user: dict = Depends(current_user)):

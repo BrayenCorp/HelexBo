@@ -19,7 +19,7 @@ def _page(page: int, size: int) -> tuple[int, int]:
 
 def generations_list(db: Database, *, kind="", status="", provider="", category="", start="", end="", q="", page=1, size=25) -> dict:
     where, args = ["1 = 1"], []
-    if kind in ("photo", "video"):
+    if kind in ("photo", "video", "audio"):
         where.append("o.kind = ?"); args.append(kind)
     if status:
         if status not in STATUS_RU:
@@ -128,9 +128,9 @@ def activity_feed(db: Database, *, limit: int = 50, kinds: set[str] | None = Non
             items.append({"ts": r["ts"], "type": "registration", "user_id": r["user_id"], "user": who(r), "text": "зарегистрировался(-ась)", "amount": None})
         for r in c.execute("SELECT o.user_id, u.username, u.first_name, o.kind, o.status, o.created_at, o.finished_at, o.price_credits FROM orders o "
                            "JOIN users u ON u.tg_id = o.user_id ORDER BY o.id DESC LIMIT ?", (n,)):
-            what = "изображение" if r["kind"] == "photo" else "видео"
+            what = {"photo": "изображение", "video": "видео", "audio": "аудио"}.get(r["kind"], "работу")
             if r["status"] == "done":
-                typ, text, ts = ("photo" if r["kind"] == "photo" else "video"), f"создал(-а) {what}", r["finished_at"] or r["created_at"]
+                typ, text, ts = ("video" if r["kind"] == "video" else "photo"), f"создал(-а) {what}", r["finished_at"] or r["created_at"]
             elif r["status"] == "failed":
                 typ, text, ts = "error", "получил(-а) ошибку генерации", r["finished_at"] or r["created_at"]
             else:

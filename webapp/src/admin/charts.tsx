@@ -1,7 +1,7 @@
 import { nf } from "../format";
 
 export interface Series { name: string; color: string; values: number[] }
-const COLORS = { orange: "#ff6a00", black: "#111111", soft: "#ffb98a", gray: "#9a9a94" };
+const COLORS = { orange: "#111111", black: "#111111", soft: "#9a9a9a", gray: "#c4c4c4" };
 export const palette = COLORS;
 
 const dd = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
@@ -27,7 +27,7 @@ export function LineChart({ days, series, height = 200 }: { days: string[]; seri
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${f.W} ${f.H}`} role="img" style={{ maxHeight: height }}>
-        {f.ticks.map((t) => (<g key={t}><line x1={f.L} x2={f.W - f.R} y1={f.y(t)} y2={f.y(t)} stroke="#e6e4e0" /><text x={f.L - 6} y={f.y(t) + 3} textAnchor="end">{nf(t)}</text></g>))}
+        {f.ticks.map((t) => (<g key={t}><line x1={f.L} x2={f.W - f.R} y1={f.y(t)} y2={f.y(t)} stroke="#dcdcdc" /><text x={f.L - 6} y={f.y(t) + 3} textAnchor="end">{nf(t)}</text></g>))}
         {days.map((d, i) => (i % f.step === 0 ? <text key={d} x={f.x(i)} y={f.H - 6} textAnchor="middle">{dd(d)}</text> : null))}
         {series.map((s) => (
           <g key={s.name}>
@@ -50,7 +50,7 @@ export function BarChart({ days, series, height = 200 }: { days: string[]; serie
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${f.W} ${f.H}`} role="img" style={{ maxHeight: height }}>
-        {f.ticks.map((t) => (<g key={t}><line x1={f.L} x2={f.W - f.R} y1={f.y(t)} y2={f.y(t)} stroke="#e6e4e0" /><text x={f.L - 6} y={f.y(t) + 3} textAnchor="end">{nf(t)}</text></g>))}
+        {f.ticks.map((t) => (<g key={t}><line x1={f.L} x2={f.W - f.R} y1={f.y(t)} y2={f.y(t)} stroke="#dcdcdc" /><text x={f.L - 6} y={f.y(t) + 3} textAnchor="end">{nf(t)}</text></g>))}
         {days.map((d, i) => (i % f.step === 0 ? <text key={d} x={f.x(i)} y={f.H - 6} textAnchor="middle">{dd(d)}</text> : null))}
         {series.values.map((v, i) => <rect key={i} x={f.x(i) - bw / 2} y={f.y(v)} width={bw} height={Math.max(0, f.H - f.B - f.y(v))} rx={2} fill={series.color}><title>{`${dd(days[i])}: ${nf(v)}`}</title></rect>)}
         {empty && <text x={f.W / 2} y={f.H / 2} textAnchor="middle" style={{ fontSize: 13 }}>Нет данных за период</text>}

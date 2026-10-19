@@ -78,7 +78,7 @@ function MoneyTab() {
 function RetentionTab() {
   const r = useLoad(() => api.admin.get<Retention>("analytics/retention?days=30"), []);
   if (!r.data) return <Loading />;
-  const cell = (c: Cell) => (c === null ? <td className="heat none">—</td> : <td className="heat" style={{ background: `rgba(255,106,0,${Math.min(0.85, (c.pct ?? 0) / 100)})` }} title={`${c.count} польз.`}>{pct(c.pct)}</td>);
+  const cell = (c: Cell) => (c === null ? <td className="heat none">—</td> : <td className="heat" style={{ background: `rgba(17,17,17,${Math.min(0.85, (c.pct ?? 0) / 100)})`, color: (c.pct ?? 0) > 45 ? "#fff" : "#111" }} title={`${c.count} польз.`}>{pct(c.pct)}</td>);
   return (
     <>
       <div className="table-wrap"><table className="tbl" style={{ minWidth: 520 }}>

@@ -12,9 +12,10 @@ interface TplRow { id: number; uses: number; title: string; style_label: string;
 interface TplList extends Meta { items: TplRow[] }
 interface Style { id?: string; title: string; prompt: string }
 interface TplFull {
-  id?: number; title: string; style_label: string; description: string; category: string; kind: "photo" | "video"; model: string; prompt: string;
+  id?: number; title: string; style_label: string; description: string; category: string; kind: "photo" | "video" | "audio"; model: string; prompt: string;
   preview_url: string; price_credits: number; is_published: boolean; is_popular: boolean; is_trend: boolean; sort_order: number;
   styles: Style[]; examples: string[];
+  section: string; tag: string; tool: string; required: string; supported_models: string;
 }
 
 type TplApi = Omit<TplFull, "is_published" | "is_popular" | "is_trend"> & { is_published: number; is_popular: number; is_trend: number };
@@ -60,7 +61,12 @@ export function TemplatesList({ trend = false }: { trend?: boolean }) {
 const EMPTY: TplFull = {
   title: "", style_label: "", description: "", category: "", kind: "photo", model: "image-default", prompt: "", preview_url: "",
   price_credits: 2, is_published: false, is_popular: false, is_trend: false, sort_order: 100, styles: [], examples: [],
+  section: "legacy", tag: "", tool: "", required: "", supported_models: "",
 };
+
+const SECTIONS: [string, string][] = [["legacy", "Обычный шаблон (старый каталог)"], ["effect", "Эффекты"], ["trend", "Тренды"], ["photoshoot", "Фотосессии"], ["prompt", "Промпты"], ["marketing", "Маркетинг: шаблон"], ["mtool", "Маркетинг: инструмент"], ["avatar", "Аватары: сцена"]];
+const listText = (raw: unknown): string => { try { const v = typeof raw === "string" ? JSON.parse(raw || "[]") : raw; return Array.isArray(v) ? v.join(", ") : ""; } catch { return ""; } };
+const toList = (t: string): string[] => t.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
 
 export function TemplateEditor({ id }: { id: string }) {
   const { nav } = useApp();
@@ -76,7 +82,7 @@ export function TemplateEditor({ id }: { id: string }) {
   useEffect(() => {
     if (isNew) return;
     api.admin.get<TplApi>(`templates/${id}`)
-      .then((t) => reset({ ...t, is_published: !!t.is_published, is_popular: !!t.is_popular, is_trend: !!t.is_trend }))
+      .then((t) => reset({ ...t, is_published: !!t.is_published, is_popular: !!t.is_popular, is_trend: !!t.is_trend, section: t.section ?? "legacy", tag: t.tag ?? "", tool: t.tool ?? "", required: listText(t.required), supported_models: listText(t.supported_models) }))
       .catch((e) => setError(errText(e, "Не удалось загрузить")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,7 +100,7 @@ export function TemplateEditor({ id }: { id: string }) {
   async function save() {
     setSaving(true); setError(null);
     try {
-      const body = { ...d, styles: d.styles.map((s) => ({ ...s, title: s.title.trim() })).filter((s) => s.title) };
+      const body = { ...d, required: toList(d.required), supported_models: toList(d.supported_models), styles: d.styles.map((s) => ({ ...s, title: s.title.trim() })).filter((s) => s.title) };
       if (isNew) await api.admin.send("POST", "templates", body);
       else await api.admin.send("PUT", `templates/${id}`, body);
       showToast("Сохранено");
@@ -136,11 +142,19 @@ export function TemplateEditor({ id }: { id: string }) {
         </Field>
         <Field label="Тип результата">
           <div className="segmented">
-            {(["photo", "video"] as const).map((k) => (
-              <button key={k} className={d.kind === k ? "on" : ""} onClick={() => { set("kind", k); set("model", k === "photo" ? "image-default" : "video-default"); }}>{k === "photo" ? "Фото" : "Видео"}</button>
+            {(["photo", "video", "audio"] as const).map((k) => (
+              <button key={k} className={d.kind === k ? "on" : ""} onClick={() => { set("kind", k); set("model", k === "photo" ? "image-default" : k === "video" ? "video-default" : "audio-default"); }}>{k === "photo" ? "Фото" : k === "video" ? "Видео" : "Аудио"}</button>
             ))}
           </div>
         </Field>
+      </Card>
+
+      <Card title="Раздел платформы" hint="Куда карточка попадёт в новом интерфейсе: эффекты, тренды, фотосессии, промпты, маркетинг, аватары">
+        <Field label="Раздел"><SelectInput value={d.section} onChange={(v) => set("section", v)} options={SECTIONS} /></Field>
+        {d.section !== "legacy" && <Field label="Категория (код)" hint="Например: women, luxury, products. Коды совпадают со вкладками раздела."><TextInput value={d.tag} onChange={(v) => set("tag", v)} placeholder="women" /></Field>}
+        {d.section !== "legacy" && d.section !== "prompt" && <Field label="Нужные материалы" hint="Через запятую: photo, person, garment, product, idea, avatar"><TextInput value={d.required} onChange={(v) => set("required", v)} placeholder="person, garment" /></Field>}
+        {(d.section === "effect" || d.section === "mtool") && <Field label="Инструмент" hint="Служебный код: storyboard, angles, tryon, enhance… Менять только если знаете, что делаете."><TextInput value={d.tool} onChange={(v) => set("tool", v)} /></Field>}
+        {d.section === "prompt" && <Field label="Подходящие модели" hint="Названия моделей через запятую. Цена промпта — цена самой доступной из них."><TextArea value={d.supported_models} onChange={(v) => set("supported_models", v)} rows={2} /></Field>}
       </Card>
 
       <Card title="Генерация" hint="Видно только вам">

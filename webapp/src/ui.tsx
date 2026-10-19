@@ -32,12 +32,12 @@ export function useDebounced<T>(value: T, ms = 250): T {
   return v;
 }
 
-/** Фирменный знак Nolla AI: оранжевая искра и чёрная точка. */
-export function Mark({ size = 28, mono = false }: { size?: number; mono?: boolean }) {
+/** Фирменный знак Nolla AI: чёрно-белая искра. */
+export function Mark({ size = 28 }: { size?: number; mono?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 120 120" aria-hidden>
-      <path d="M58 16 C61.5 44 75 57.5 104 61 C75 64.5 61.5 78 58 106 C54.5 78 41 64.5 12 61 C41 57.5 54.5 44 58 16Z" fill={mono ? "currentColor" : "#FF6A00"} />
-      <circle cx="96" cy="24" r="6" fill={mono ? "currentColor" : "#111111"} />
+      <path d="M58 16 C61.5 44 75 57.5 104 61 C75 64.5 61.5 78 58 106 C54.5 78 41 64.5 12 61 C41 57.5 54.5 44 58 16Z" fill="currentColor" />
+      <circle cx="96" cy="24" r="6" fill="currentColor" />
     </svg>
   );
 }
@@ -45,7 +45,7 @@ export function Mark({ size = 28, mono = false }: { size?: number; mono?: boolea
 export function Logo({ subtitle }: { subtitle?: string }) {
   return (
     <span className="logo">
-      <Mark size={34} />
+      <Mark size={30} />
       <span className="logo-text"><b>Nolla AI</b>{subtitle && <span>{subtitle}</span>}</span>
     </span>
   );

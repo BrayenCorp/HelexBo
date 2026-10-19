@@ -6,13 +6,15 @@ import re
 import uuid
 
 from ..db import Database, now
+from .. import catalog_data as cd
 from ..errors import DomainError, TemplateNotFound
 
-KINDS = ("photo", "video")
-KNOWN_MODELS = ("image-default", "video-default", "seedance-2.5")
+KINDS = ("photo", "video", "audio")
+KNOWN_MODELS = ("image-default", "video-default", "audio-default", "seedance-2.5")
 EDITABLE = (
     "title", "description", "category", "kind", "model", "prompt", "preview_url",
     "emoji", "price_credits", "is_published", "is_popular", "is_trend", "sort_order", "style_label",
+    "section", "tag", "tool", "required", "supported_models",
 )
 MAX_STYLES = 8
 MAX_EXAMPLES = 8
@@ -173,13 +175,26 @@ def _clean(fields: dict, partial: bool) -> dict:
                 raise DomainError(f"Поле {key} должно быть числом")
         if key in ("is_published", "is_popular", "is_trend"):
             val = 1 if val in (True, 1, "1", "true", "True") else 0
+        if key in ("section", "tag", "tool"):
+            val = str(val or "").strip()
+        if key in ("required", "supported_models"):
+            if isinstance(val, str):
+                try:
+                    val = json.loads(val or "[]")
+                except ValueError:
+                    raise DomainError(f"Поле {key}: ожидается список")
+            if not isinstance(val, list) or any(not isinstance(x, str) for x in val):
+                raise DomainError(f"Поле {key}: ожидается список строк")
+            val = json.dumps([x.strip() for x in val if x.strip()], ensure_ascii=False)
         out[key] = val
+    if "section" in out and out["section"] not in ("legacy", *cd.SECTIONS):
+        raise DomainError("Неизвестный раздел платформы")
     if "styles" in fields:
         out["styles"] = json.dumps(clean_styles(fields["styles"]), ensure_ascii=False)
     if "title" in out and not out["title"]:
         raise DomainError("Название не может быть пустым")
     if "kind" in out and out["kind"] not in KINDS:
-        raise DomainError("Тип генерации: photo или video")
+        raise DomainError("Тип генерации: photo, video или audio")
     if "price_credits" in out and out["price_credits"] < 0:
         raise DomainError("Цена не может быть отрицательной")
     if not partial:
@@ -215,7 +230,7 @@ def _save_examples(conn, template_id: int, urls: list[str]) -> None:
 def create(db: Database, fields: dict) -> dict:
     data = _clean(fields, partial=False)
     examples = _clean_examples(fields["examples"]) if "examples" in fields else None
-    data.setdefault("model", "image-default" if data["kind"] == "photo" else "video-default")
+    data.setdefault("model", {"photo": "image-default", "video": "video-default", "audio": "audio-default"}[data["kind"]])
     ts = now()
     with db.tx() as conn:
         if "category" not in data:

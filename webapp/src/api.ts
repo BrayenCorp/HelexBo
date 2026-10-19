@@ -1,7 +1,7 @@
 import { tg } from "./telegram";
 import type {
   AiModel, Category, CreateOrderResponse, Favorites, GenParams, Landing, PayMethods, TokensSummary, Kind, LedgerRow, Me, Order, Pack, PaymentRow, PaymentStart,
-  Profile, Template, TemplateDetail,
+  Profile, Template, TemplateDetail, AvatarRow, CatalogItem, Integrations, PlatformHome, PlatformMeta, Prefs, Quote, SearchGroup,
 } from "./types";
 
 export class ApiError extends Error {
@@ -62,7 +62,7 @@ export const api = {
     return json<Template[]>(`/api/templates?${q}`);
   },
   template: (id: number) => json<TemplateDetail>(`/api/templates/${id}`),
-  createOrder: (o: { requestId: string; templateId?: number; kind?: Kind; prompt?: string; params?: GenParams; style?: string; photo?: File | null; modelId?: number; count?: number }) => {
+  createOrder: (o: { requestId: string; templateId?: number; kind?: Kind; prompt?: string; params?: GenParams; style?: string; photo?: File | null; modelId?: number; count?: number; photo2?: File | null; avatarId?: number; refOrderId?: number }) => {
     const form = new FormData();
     form.set("request_id", o.requestId);
     if (o.templateId) form.set("template_id", String(o.templateId));
@@ -73,6 +73,9 @@ export const api = {
     if (o.modelId) form.set("model_id", String(o.modelId));
     if (o.count && o.count > 1) form.set("count", String(o.count));
     if (o.photo) form.set("photo", o.photo);
+    if (o.photo2) form.set("photo2", o.photo2);
+    if (o.avatarId) form.set("avatar_id", String(o.avatarId));
+    if (o.refOrderId) form.set("ref_order_id", String(o.refOrderId));
     return json<CreateOrderResponse>("/api/orders", { method: "POST", body: form });
   },
   orders: () => json<Order[]>("/api/orders"),
@@ -91,6 +94,47 @@ export const api = {
     send<{ status: string; credited: boolean; balance: number }>("POST", "/api/payments/test-confirm", { payload }),
   setNotify: (on: boolean) => send<{ notify_chat: boolean }>("PUT", "/api/me/settings", { notify_chat: on }),
   deleteMyMedia: () => json<{ deleted_files: number }>("/api/me/media", { method: "DELETE" }),
+  meta: () => json<PlatformMeta>("/api/platform/meta"),
+  platformHome: () => json<PlatformHome>("/api/platform/home"),
+  catalog: (section: string, p: { tag?: string; q?: string; popular?: boolean } = {}) => {
+    const q = new URLSearchParams();
+    if (p.tag) q.set("tag", p.tag);
+    if (p.q) q.set("q", p.q);
+    if (p.popular) q.set("popular", "true");
+    return json<CatalogItem[]>(`/api/catalog/${section}?${q}`);
+  },
+  catalogItem: (id: number) => json<CatalogItem>(`/api/catalog/item/${id}`),
+  catalogSlug: (slug: string) => json<CatalogItem>(`/api/catalog/slug/${encodeURIComponent(slug)}`),
+  search: (q: string) => json<SearchGroup[]>(`/api/search?q=${encodeURIComponent(q)}`),
+  quote: (p: { kind?: Kind; templateId?: number; modelId?: number; count?: number }) => {
+    const q = new URLSearchParams();
+    if (p.kind) q.set("kind", p.kind);
+    if (p.templateId) q.set("template_id", String(p.templateId));
+    if (p.modelId) q.set("model_id", String(p.modelId));
+    if (p.count) q.set("count", String(p.count));
+    return json<Quote>(`/api/quote?${q}`);
+  },
+  avatars: () => json<AvatarRow[]>("/api/avatars"),
+  avatar: (id: number) => json<AvatarRow>(`/api/avatars/${id}`),
+  createAvatar: (name: string, photos: File[], consent: boolean) => {
+    const form = new FormData();
+    form.set("name", name);
+    form.set("consent", consent ? "true" : "false");
+    photos.forEach((f) => form.append("photos", f));
+    return json<AvatarRow>("/api/avatars", { method: "POST", body: form });
+  },
+  deleteAvatar: (id: number) => json<{ deleted: boolean }>(`/api/avatars/${id}`, { method: "DELETE" }),
+  avatarCoverBlob: async (id: number) => (await raw(`/api/avatars/${id}/cover`)).blob(),
+  frameBlob: async (id: number, i: number) => (await raw(`/api/orders/${id}/frames/${i}`)).blob(),
+  regenFrame: (id: number, index: number, requestId: string) =>
+    send<{ order: Order; balance: number; price: number }>("POST", `/api/orders/${id}/regen-frame`, { index, request_id: requestId }),
+  prefs: () => json<Prefs>("/api/me/prefs"),
+  savePrefs: (p: Partial<Prefs> & { clear_model?: boolean }) => send<Prefs>("PUT", "/api/me/prefs", p),
+  integrations: () => json<Integrations>("/api/integrations"),
+  createToken: (label: string) => send<{ id: number; token: string; label: string }>("POST", "/api/integrations/tokens", { label }),
+  revokeToken: (id: number) => json<{ revoked: boolean }>(`/api/integrations/tokens/${id}`, { method: "DELETE" }),
+  demoPay: (packageId: string, method: string) =>
+    send<{ status: string; credited: boolean; tokens: number; balance: number }>("POST", "/api/payments/demo", { package_id: packageId, method }),
   admin: {
     get: <T>(path: string) => json<T>(`/api/admin/${path}`),
     send: <T>(method: "POST" | "PUT", path: string, body: unknown) => send<T>(method, `/api/admin/${path}`, body),

@@ -42,23 +42,22 @@ def esc(text: object) -> str:
 
 BRAND = "Nolla AI"
 BOT_DESCRIPTION = (
-    "Nolla AI — premium AI creative studio в Telegram. Создавайте фото и видео с помощью искусственного "
-    "интеллекта: опишите идею или выберите стиль — мужские, женские, детские и семейные образы, тренды и видео. "
-    "Первое фото и первое видео бесплатно."
+    "Nolla AI — AI-платформа для творчества в Telegram. Создавайте изображения, видео и озвучку с лучшими "
+    "AI-моделями: эффекты, тренды, фотосессии, аватары и маркетинг. Первое фото и первое видео бесплатно."
 )
-BOT_SHORT_DESCRIPTION = "Фото и видео с помощью AI. Опишите идею или выберите стиль. Первое фото бесплатно."
+BOT_SHORT_DESCRIPTION = "Изображения, видео и озвучка с помощью AI. Первое фото бесплатно."
 
 
 def main_menu(ctx: AppContext) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
+    if ctx.settings.webapp_url:  # платформа — главное: все разделы живут в приложении
+        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", web_app=WebAppInfo(url=ctx.settings.webapp_url)))
+    else:  # WEBAPP_URL не задан — кнопка есть, но объясняет, что нужно сделать
+        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", callback_data="menu:app"))
     kb.row(InlineKeyboardButton(text="✦ Создать фото", callback_data="menu:photo"),
            InlineKeyboardButton(text="✦ Создать видео", callback_data="menu:video"))
     kb.row(InlineKeyboardButton(text="Мои токены", callback_data="menu:credits"),
            InlineKeyboardButton(text="Мои работы", callback_data="menu:works"))
-    if ctx.settings.webapp_url:
-        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", web_app=WebAppInfo(url=ctx.settings.webapp_url)))
-    else:  # WEBAPP_URL не задан — кнопка есть, но объясняет, что нужно сделать
-        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", callback_data="menu:app"))
     return kb.as_markup()
 
 
@@ -120,7 +119,7 @@ async def cmd_start(message: Message, state: FSMContext, ctx: AppContext):
     text = (
         f"<b>{BRAND}</b>\n"
         f"{'Здравствуйте, ' + name + '.' if name else 'Здравствуйте.'}\n\n"
-        "Фото и видео с помощью искусственного интеллекта: опишите идею или выберите стиль.\n\n"
+        "Изображения, видео и озвучка с помощью искусственного интеллекта. Все разделы — в приложении.\n\n"
         f"Подарок: первое фото — {'бесплатно' if free['photo'] else 'использовано'}, "
         f"первое видео — {'бесплатно' if free['video'] else 'использовано'}.\n\n"
         "Выберите, что создаём:"
@@ -411,7 +410,7 @@ async def cmd_profile(message: Message, ctx: AppContext):
     prof = users.profile(ctx.db, message.from_user.id)
     done = orders.count_done_by_kind(ctx.db, message.from_user.id)
     text = (f"<b>Профиль</b>\nТариф: {'PRO' if prof['is_pro'] else 'Бесплатный'}\nБаланс: {prof['balance']} ток.\n"
-            f"Генераций: {done['photo'] + done['video']} (фото {done['photo']}, видео {done['video']})")
+            f"Генераций: {done['photo'] + done['video'] + done['audio']} (фото {done['photo']}, видео {done['video']}, аудио {done['audio']})")
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="Пополнить токены", callback_data="menu:credits"))
     await message.answer(text, reply_markup=kb.as_markup())
@@ -475,6 +474,8 @@ class BotNotifier:
             await self.bot.send_animation(chat_id, file, caption=caption)
         elif mime.startswith("video/"):
             await self.bot.send_video(chat_id, file, caption=caption)
+        elif mime.startswith("audio/"):
+            await self.bot.send_document(chat_id, file, caption=caption)
         else:
             await self.bot.send_photo(chat_id, file, caption=caption)
         if with_menu:
@@ -517,7 +518,7 @@ async def setup_bot_profile(bot: Bot, ctx: AppContext) -> None:
     await step("команды", bot.set_my_commands([
         BotCommand(command="start", description="Главное меню"),
         BotCommand(command="menu", description="Открыть меню"),
-        BotCommand(command="create", description="Создать фото или видео"),
+        BotCommand(command="create", description="Создать фото, видео или аудио"),
         BotCommand(command="profile", description="Профиль и баланс"),
         BotCommand(command="history", description="История генераций"),
         BotCommand(command="settings", description="Настройки"),

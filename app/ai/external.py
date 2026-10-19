@@ -57,6 +57,13 @@ class ExternalVideoProvider(ExternalProvider):
     hint = "Выберите сервис генерации видео из изображения и реализуйте вызов (обычно асинхронная задача)."
 
 
+class ExternalAudioProvider(ExternalProvider):
+    name = "audio-api"
+    kind = "audio"
+    env_var = "AUDIO_API_KEY"
+    hint = "Выберите сервис синтеза речи (озвучки) и реализуйте вызов: на вход текст, голос, эмоция, скорость; на выход аудиофайл."
+
+
 class SeedanceVideoProvider(ExternalProvider):
     name = "seedance-2.5"
     kind = "video"

@@ -5,7 +5,18 @@ $old = @(
     "webapp\src\pages\Catalog.tsx",
     "webapp\src\pages\Create.tsx",
     "webapp\src\pages\Favorites.tsx",
-    "webapp\src\pages\Works.tsx"
+    "webapp\src\pages\Works.tsx",
+    "webapp\src\pages\About.tsx",
+    "webapp\src\pages\Category.tsx",
+    "webapp\src\pages\Explore.tsx",
+    "webapp\src\pages\Generate.tsx",
+    "webapp\src\pages\Payments.tsx",
+    "webapp\src\pages\Settings.tsx",
+    "webapp\src\pages\Shop.tsx",
+    "webapp\src\pages\TemplatePage.tsx",
+    "webapp\src\pages\Tokens.tsx",
+    "webapp\src\pages\Welcome.tsx",
+    "webapp\src\styles.css"
 )
 foreach ($p in $old) {
     if (Test-Path $p) {

@@ -402,6 +402,6 @@ class ContentTest(BaseTest):
 
     def test_seeded_faq_models_methods_exist(self):
         self.assertGreaterEqual(len(content.faq_public(self.db)), 8)
-        self.assertEqual(len(models.public_list(self.db)), 2)  # премиум-видео выключено, пока не подключено
+        self.assertEqual(len(models.public_list(self.db)), 26)  # 12 изображений + 13 видео + аудио; прежние три модели скрыты
         codes = [m["code"] for m in methods.admin_list(self.db, __import__("app.config", fromlist=["Settings"]).Settings(), False)]
         self.assertEqual(set(codes), {"stars", "sbp", "card", "test"})

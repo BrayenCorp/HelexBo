@@ -21,15 +21,32 @@ class Runner:
     def __init__(
         self, db: Database, storage: Storage, providers: ProviderRegistry,
         notifier: Notifier | None = None, max_parallel: int = 3, timeout: int = 600,
+        ai_mode: str = "mock", demo_delay: float = 0.0,
     ):
         self.db, self.storage, self.providers = db, storage, providers
         self.notifier = notifier
         self.timeout = timeout
+        self.ai_mode, self.demo_delay = ai_mode, demo_delay
         self._sem = asyncio.Semaphore(max_parallel)
         self._tasks: set[asyncio.Task] = set()
 
     def schedule(self, order_id: int) -> asyncio.Task:
         task = asyncio.create_task(self._run(order_id))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return task
+
+    def schedule_avatar(self, avatar_id: int) -> asyncio.Task:
+        from .services import avatars
+
+        async def run() -> None:
+            try:
+                await asyncio.to_thread(avatars.process, self.db, self.storage, self.ai_mode, avatar_id, self.demo_delay)
+            except Exception:
+                log.exception("Сбой создания аватара %s", avatar_id)
+                avatars._set(self.db, avatar_id, status="failed", error="Не получилось создать аватар. Попробуйте ещё раз.")
+
+        task = asyncio.create_task(run())
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return task

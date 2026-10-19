@@ -26,8 +26,8 @@ export function initTelegram(): void {
   if (!tg) return;
   tg.ready();
   tg.expand();
-  tg.setHeaderColor?.("#F7F7F5");
-  tg.setBackgroundColor?.("#F7F7F5");
+  tg.setHeaderColor?.("#000000");
+  tg.setBackgroundColor?.("#000000");
 }
 
 export function haptic(type: "success" | "error" | "warning"): void {

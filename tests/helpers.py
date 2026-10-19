@@ -23,6 +23,8 @@ class BaseTest(unittest.TestCase):
         self.dir = self._tmp.name
         self.db = Database(f"{self.dir}/test.db")
         init_db(self.db)
+        with self.db.tx() as conn:  # старые тестовые пакеты (p10/p30/p100) нужны ряду проверок о кредитах и платежах
+            conn.execute("UPDATE packages SET is_active = 1 WHERE id IN ('p10', 'p30', 'p100')")
         self.storage = Storage(self.dir)
         self.mock = ProviderRegistry("mock")
         self.live = ProviderRegistry("live")  # заглушки: ключей нет → «не подключено»

@@ -1,58 +1,75 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { useApp } from "../ctx";
+import { useApp, showToast } from "../ctx";
+import { fmtTime } from "../format";
 import { Icon } from "../icons";
-import type { Order } from "../types";
-import { AuthMedia, Chips, Cover, Empty, ErrorBox, Heart, Loading, Skeleton, formatDuration, useLoad } from "../ui";
+import { Empty2, Hdr, KIND_LABEL, STATUS_LABEL, Tabs } from "../pf";
+import type { HistoryFilter, Order } from "../types";
+import { ErrorBox, Loading, useLoad } from "../ui";
 
-type Filter = "all" | "photo" | "video" | "fav";
+const FILTERS: [HistoryFilter, string][] = [["all", "Все"], ["images", "Изображения"], ["video", "Видео"], ["audio", "Аудио"], ["effects", "Эффекты"], ["avatars", "Аватары"], ["marketing", "Маркетинг"], ["fav", "Избранное"]];
 
-function Card({ o }: { o: Order }) {
-  const { me, nav, toggleFavorite } = useApp();
-  const busy = o.status === "created" || o.status === "processing";
+export function Thumb({ o }: { o: Order }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (o.status !== "done" || !o.has_result || o.kind === "audio") return;
+    let alive = true; let u: string | null = null;
+    api.resultBlob(o.id).then((b) => { if (alive) { u = URL.createObjectURL(b); setUrl(u); } }).catch(() => undefined);
+    return () => { alive = false; if (u) URL.revokeObjectURL(u); };
+  }, [o.id, o.status, o.has_result, o.kind]);
+  const video = o.result_mime?.startsWith("video/");
   return (
-    <button className="hcard" onClick={() => nav.go({ name: "order", id: o.id })}>
-      {busy && <><Skeleton className="sk-fill" /><span className="hcard-state">Создаётся…</span></>}
-      {o.status === "failed" && <><Cover seed={o.id} /><span className="hcard-state bad">Ошибка</span></>}
-      {o.status === "done" && (o.has_result
-        ? <AuthMedia orderId={o.id} mime={o.result_mime} fallback={o.preview_url} controls={false} />
-        : <Cover seed={o.id} />)}
-      <span className="hcard-type"><Icon name={o.kind === "photo" ? "image" : "video"} size={13} /></span>
-      {o.kind === "video" && o.status === "done" && <span className="hcard-dur">{formatDuration(o.duration_sec)}</span>}
-      {o.status === "done" && o.has_result && (
-        <span className="hcard-heart"><Heart on={me.favorites.orders.includes(o.id)} onClick={() => toggleFavorite("order", o.id)} /></span>
-      )}
+    <span className="hthumb">
+      {url ? (video ? <video src={url} muted playsInline /> : <img src={url} alt="" />) : <Icon name={o.kind === "audio" ? "audio" : o.kind === "video" ? "film" : "image"} size={22} />}
+    </span>
+  );
+}
+
+export function HistoryRow({ o, onOpen }: { o: Order; onOpen: () => void }) {
+  const cls = o.status === "done" ? "ok" : o.status === "failed" ? "err" : "";
+  return (
+    <button className="hrow" onClick={onOpen}>
+      <Thumb o={o} />
+      <span className="grow">
+        <b>{o.prompt || o.title || KIND_LABEL[o.kind]}</b>
+        <span>{o.is_system ? KIND_LABEL[o.kind] : o.title} · {fmtTime(o.created_at)}</span>
+      </span>
+      <span className={`st ${cls}`}>{STATUS_LABEL[o.status]}</span>
     </button>
   );
 }
 
-export function History({ initial = "all" }: { initial?: Filter }) {
-  const { me, nav } = useApp();
-  const [filter, setFilter] = useState<Filter>(initial);
+export function History({ initial }: { initial?: HistoryFilter }) {
+  const { me, nav, refreshMe } = useApp();
+  const [filter, setFilter] = useState<HistoryFilter>(initial ?? "all");
   const q = useLoad(() => api.orders(), []);
-  const working = q.data?.some((o) => o.status === "created" || o.status === "processing");
-  const { reload } = q;
-  useEffect(() => {
-    if (!working) return;
-    const t = setInterval(reload, 3000);
-    return () => clearInterval(t);
-  }, [working, reload]);
+  const list = q.data ?? [];
+  const pending = list.some((o) => o.status === "created" || o.status === "processing");
+  useEffect(() => { if (!pending) return; const t = setTimeout(q.reload, 3000); return () => clearTimeout(t); }, [pending, q.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const items = (q.data ?? []).filter((o) =>
-    filter === "all" || (filter === "fav" ? me.favorites.orders.includes(o.id) : o.kind === filter));
+  const shown = useMemo(() => list.filter((o) => filter === "all" ? true : filter === "fav" ? me.favorites.orders.includes(o.id) : o.group === filter), [list, filter, me.favorites.orders]);
 
+  async function remove(o: Order) {
+    try { await api.deleteOrder(o.id); showToast("Работа удалена"); q.reload(); refreshMe(); } catch { showToast("Не удалось удалить"); }
+  }
   return (
     <>
-      <h1 className="h1">История генераций</h1>
-      <Chips compact value={filter} onChange={setFilter} options={[["all", "Все", "grid"], ["photo", "Фото", "image"], ["video", "Видео", "video"], ["fav", "Избранное", "heart"]]} />
+      <Hdr title="История" text="Все ваши работы: статусы, результаты и повтор в один клик." />
+      <Tabs value={filter} onChange={(v) => setFilter(v as HistoryFilter)} items={FILTERS.map(([id, label]) => ({ id, label }))} />
       {q.loading && !q.data && <Loading />}
       {q.error && <ErrorBox message={q.error} onRetry={q.reload} />}
-      {q.data && items.length === 0 && (
-        <Empty icon={filter === "fav" ? "heart" : "sparkle"} title={filter === "fav" ? "В избранном пока пусто" : "Здесь появятся ваши работы"}
-          text={filter === "fav" ? "Нажмите на сердечко у работы, чтобы сохранить её." : "Создайте первое изображение или видео."}
-          action={<button className="btn orange sm" onClick={() => nav.go({ name: "generate", kind: filter === "video" ? "video" : "photo" })}>Создать</button>} />
+      {q.data && shown.length === 0 && (
+        <Empty2 title={filter === "all" ? "Работ пока нет" : "В этом разделе пусто"} text="Создайте первую работу — она появится здесь."
+          action={<button className="btn orange" onClick={() => nav.go({ name: "create" })}>Создать</button>} />
       )}
-      <div className="hgrid">{items.map((o) => <Card key={o.id} o={o} />)}</div>
+      <div className="hlist">
+        {shown.map((o) => (
+          <div key={o.id} className="hwrap">
+            <HistoryRow o={o} onOpen={() => nav.go({ name: "order", id: o.id })} />
+            {(o.status === "done" || o.status === "failed") && <button className="btn outline" aria-label="Удалить" onClick={() => remove(o)}><Icon name="trash" size={16} /></button>}
+          </div>
+        ))}
+      </div>
     </>
   );
 }
