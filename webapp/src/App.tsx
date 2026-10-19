@@ -41,7 +41,11 @@ const MORE: NavItem[] = [
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stack, setStack] = useState<Route[]>([{ name: "home" }]);
+  // Бот открывает приложение сразу на нужной карточке: ?slug=... или startapp
+  const [stack, setStack] = useState<Route[]>(() => {
+    const slug = new URLSearchParams(window.location.search).get("slug") || tg?.initDataUnsafe?.start_param || "";
+    return /^[a-z0-9-]{2,60}$/.test(slug) ? [{ name: "home" }, { name: "tool", slug }] : [{ name: "home" }];
+  });
   const [menu, setMenu] = useState(false);
   const [quick, setQuick] = useState(false);
   const [search, setSearch] = useState(false);

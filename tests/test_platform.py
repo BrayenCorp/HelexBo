@@ -545,3 +545,21 @@ class AdminFieldsTest(BaseTest):
         self.assertEqual(rep["generations"]["audio"], 1)
         got = admin_lists.generations_list(self.db, kind="audio")
         self.assertEqual(len(got["items"]), 1)
+
+
+class PreviewPhotosTest(BaseTest):
+    def test_upload_list_and_delete(self):
+        from app.services import previews
+        self.assertEqual(previews.list_public(self.storage), [])
+        a = previews.save(self.storage, make_photo((900, 1600)), 10 * 1024 * 1024)
+        previews.save(self.storage, make_photo((600, 1000)), 10 * 1024 * 1024)
+        urls = previews.list_public(self.storage)
+        self.assertEqual(len(urls), 2)
+        self.assertTrue(all(u.startswith("/media/previews/") for u in urls))
+        self.assertEqual(len(previews.list_admin(self.storage)), 2)
+        with self.assertRaises(DomainError):
+            previews.save(self.storage, b"not an image", 10 * 1024 * 1024)
+        with self.assertRaises(DomainError):
+            previews.delete(self.storage, "../../secret.jpg")
+        previews.delete(self.storage, a["name"])
+        self.assertEqual(len(previews.list_public(self.storage)), 1)

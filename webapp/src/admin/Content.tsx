@@ -143,16 +143,60 @@ function FaqAdmin() {
   );
 }
 
+/** Фото для обложек карточек: загрузите любые снимки — интерфейс расставит их сам. */
+function PreviewsAdmin() {
+  const q = useLoad(() => api.admin.previews(), []);
+  const [busy, setBusy] = useState(false);
+  const [del, setDel] = useState<string | null>(null);
+
+  async function add(files: FileList | null) {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      for (const f of Array.from(files)) await api.admin.addPreview(f);
+      showToast("Фото загружены"); q.reload();
+    } catch (e) { showToast(errText(e, "Не удалось загрузить")); }
+    finally { setBusy(false); }
+  }
+  async function remove() {
+    if (!del) return;
+    try { await api.admin.delPreview(del); showToast("Фото удалено"); setDel(null); q.reload(); }
+    catch (e) { showToast(errText(e, "Не удалось удалить")); }
+  }
+
+  return (
+    <Card title="Фото для обложек карточек" hint="Эти фото автоматически становятся обложками карточек, у которых нет своей. Каждая карточка всегда получает одно и то же фото. Лучше всего вертикальные снимки 9:16.">
+      <label className="btn orange sm" style={{ alignSelf: "flex-start" }}>
+        <Icon name="upload" size={16} /> {busy ? "Загружаем…" : "Загрузить фото"}
+        <input type="file" hidden multiple accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+      </label>
+      {q.error && <ErrorBox message={q.error} onRetry={q.reload} />}
+      {q.data && q.data.length === 0 && <p className="field-hint">Фото пока нет — на карточках показываются нейтральные плашки. Можно также просто положить файлы в папку data/media/previews на сервере.</p>}
+      <div className="gallery">
+        {(q.data ?? []).map((p) => (
+          <div key={p.name} className="gallery-item">
+            <img src={p.url} alt="" />
+            <button className="icon-plain danger" aria-label="Удалить фото" onClick={() => setDel(p.name)}><Icon name="trash" size={16} /></button>
+          </div>
+        ))}
+      </div>
+      {q.data && q.data.length > 0 && <p className="field-hint">Загружено фото: {q.data.length}.</p>}
+      {del && <ConfirmModal title="Удалить фото?" text="Карточки, где оно стояло, получат другое фото." confirm="Удалить" onConfirm={remove} onClose={() => setDel(null)} />}
+    </Card>
+  );
+}
+
 export function ContentAdmin() {
-  const [tab, setTab] = useState<"home" | "faq" | "works">("home");
+  const [tab, setTab] = useState<"home" | "faq" | "works" | "previews">("home");
   return (
     <>
       <div className="tabs-line">
         <button className={tab === "home" ? "on" : ""} onClick={() => setTab("home")}>Главная страница</button>
         <button className={tab === "faq" ? "on" : ""} onClick={() => setTab("faq")}>Частые вопросы</button>
         <button className={tab === "works" ? "on" : ""} onClick={() => setTab("works")}>Популярные работы</button>
+        <button className={tab === "previews" ? "on" : ""} onClick={() => setTab("previews")}>Фото для обложек</button>
       </div>
-      {tab === "home" && <HomeBlocks />}{tab === "faq" && <FaqAdmin />}{tab === "works" && <ShowcaseAdmin />}
+      {tab === "home" && <HomeBlocks />}{tab === "faq" && <FaqAdmin />}{tab === "works" && <ShowcaseAdmin />}{tab === "previews" && <PreviewsAdmin />}
     </>
   );
 }

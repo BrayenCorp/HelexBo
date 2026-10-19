@@ -19,7 +19,7 @@ from .security import validate_init_data
 from . import catalog_data, mcp as mcp_server
 from .services import (
     admin_lists, admin_users, analytics, api_tokens, avatars, catalog, categories, content, credits, events, exports, favorites, frames, landing,
-    media, methods, models, orders, payments, prefs, showcase, site_settings, system, templates, users,
+    media, methods, models, orders, payments, prefs, previews, showcase, site_settings, system, templates, users,
 )
 
 log = logging.getLogger(__name__)
@@ -233,6 +233,11 @@ def create_app(ctx: AppContext) -> FastAPI:
     @app.get("/api/catalog/slug/{slug}")
     async def catalog_slug(slug: str, _: dict = Depends(current_user)):
         return catalog.get_by_slug(ctx.db, slug)
+
+    @app.get("/api/previews")
+    async def preview_photos(_: dict = Depends(current_user)):
+        """Ваши фото для обложек карточек (папка data/media/previews)."""
+        return previews.list_public(ctx.storage)
 
     @app.get("/api/search")
     async def search(q: str = "", user: dict = Depends(current_user)):
@@ -721,6 +726,20 @@ def create_app(ctx: AppContext) -> FastAPI:
     @app.put(f"{A}/freeform/{{kind}}")
     async def a_freeform_update(kind: str, body: dict, _: dict = Depends(owner)):
         return templates.update_system(ctx.db, kind, body)
+
+    @app.get(f"{A}/previews")
+    async def a_previews(_: dict = Depends(owner)):
+        return previews.list_admin(ctx.storage)
+
+    @app.post(f"{A}/previews")
+    async def a_preview_add(file: UploadFile = File(...), _: dict = Depends(owner)):
+        data = await file.read(s.max_upload_bytes + 1)
+        return await asyncio.to_thread(previews.save, ctx.storage, data, s.max_upload_bytes)
+
+    @app.delete(f"{A}/previews/{{name}}")
+    async def a_preview_delete(name: str, _: dict = Depends(owner)):
+        previews.delete(ctx.storage, name)
+        return {"deleted": True}
 
     @app.post(f"{A}/media")
     async def a_media(file: UploadFile = File(...), _: dict = Depends(owner)):

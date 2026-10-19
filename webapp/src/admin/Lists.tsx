@@ -3,6 +3,7 @@ import { api } from "../api";
 import { showToast, useApp } from "../ctx";
 import { fmtTime, nf } from "../format";
 import { Icon } from "../icons";
+import { Dropdown } from "../pf";
 import { Chips, ErrorBox, Loading, Modal, useDebounced, useLoad } from "../ui";
 import { Field, SelectInput, TextInput, errText } from "./kit";
 import { ActivityFeed, ExportButton, TYPE_LABEL } from "./parts";
@@ -65,7 +66,7 @@ export function Generations() {
   const res = useLoad(() => api.admin.get<GenPage>(path), [path]);
   const set = (k: keyof typeof f, v: string) => { setF({ ...f, [k]: v }); setPage(1); };
   const sel = (k: keyof typeof f, label: string, opts: [string, string][]) => (
-    <span className="select"><select value={f[k]} onChange={(e) => set(k, e.target.value)} aria-label={label}><option value="">{label}</option>{opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></span>
+    <span className="select-wrap"><Dropdown value={f[k]} onChange={(v) => set(k, v)} placeholder={label} options={[{ id: "", label }, ...opts.map(([id, l]) => ({ id, label: l }))]} /></span>
   );
   return (
     <>
@@ -166,7 +167,8 @@ export function Payments() {
         <>
           <div className="toolbar">
             <label className="search"><Icon name="search" size={18} /><input placeholder="Поиск: ID платежа или пользователь" value={f.q} onChange={(e) => { setF({ ...f, q: e.target.value }); setPage(1); }} /></label>
-            <span className="select"><select value={f.status} onChange={(e) => { setF({ ...f, status: e.target.value }); setPage(1); }} aria-label="Статус"><option value="">Все статусы</option><option value="pending">Ожидает</option><option value="paid">Оплачен</option><option value="failed">Ошибка</option><option value="refunded">Возврат</option><option value="cancelled">Отменён</option></select></span>
+            <span className="select-wrap"><Dropdown value={f.status} onChange={(v) => { setF({ ...f, status: v }); setPage(1); }} placeholder="Все статусы"
+              options={[["", "Все статусы"], ["pending", "Ожидает"], ["paid", "Оплачен"], ["failed", "Ошибка"], ["refunded", "Возврат"], ["cancelled", "Отменён"]].map(([id, label]) => ({ id, label }))} /></span>
             <ExportButton kind="payments" />
           </div>
           {res.error && <ErrorBox message={res.error} onRetry={res.reload} />}

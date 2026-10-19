@@ -1,7 +1,7 @@
 interface TgUser { id: number; first_name?: string; photo_url?: string }
 interface TgWebApp {
   initData: string;
-  initDataUnsafe?: { user?: TgUser };
+  initDataUnsafe?: { user?: TgUser; start_param?: string };
   ready(): void;
   expand(): void;
   close(): void;

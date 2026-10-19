@@ -4,6 +4,7 @@ import { api, ApiError } from "../api";
 import { showToast, useApp } from "../ctx";
 import { fmtDate, fmtShort, fmtTime, nf, tokensText, usd } from "../format";
 import { Icon } from "../icons";
+import { Dropdown } from "../pf";
 import { ErrorBox, Loading, Modal, PageHeader, Section, useDebounced, useLoad } from "../ui";
 import { ExportButton } from "./parts";
 import { DataTable, Pager } from "./table";
@@ -42,7 +43,7 @@ export function UsersList() {
     <>
       <div className="toolbar">
         <label className="search"><Icon name="search" size={18} /><input placeholder="Поиск: Telegram ID, username или имя" value={text} onChange={(e) => { setText(e.target.value); setPage(1); }} /></label>
-        <span className="select"><select value={flt} onChange={(e) => { setFlt(e.target.value); setPage(1); }} aria-label="Фильтр">{FILTERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></span>
+        <span className="select-wrap"><Dropdown value={flt} onChange={(v) => { setFlt(v); setPage(1); }} options={FILTERS.map(([id, label]) => ({ id, label }))} /></span>
         <ExportButton kind="users" />
       </div>
       {q.error && <ErrorBox message={q.error} onRetry={q.reload} />}

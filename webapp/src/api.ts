@@ -95,6 +95,7 @@ export const api = {
   setNotify: (on: boolean) => send<{ notify_chat: boolean }>("PUT", "/api/me/settings", { notify_chat: on }),
   deleteMyMedia: () => json<{ deleted_files: number }>("/api/me/media", { method: "DELETE" }),
   meta: () => json<PlatformMeta>("/api/platform/meta"),
+  previews: () => json<string[]>("/api/previews"),
   platformHome: () => json<PlatformHome>("/api/platform/home"),
   catalog: (section: string, p: { tag?: string; q?: string; popular?: boolean } = {}) => {
     const q = new URLSearchParams();
@@ -141,6 +142,13 @@ export const api = {
     del: <T>(path: string) => json<T>(`/api/admin/${path}`, { method: "DELETE" }),
     download: async (kind: string) => (await raw(`/api/admin/export/${kind}`)).blob(),
     sendExport: (kind: string) => json<{ sent: boolean }>(`/api/admin/export/${kind}/send`, { method: "POST" }),
+    previews: () => json<{ name: string; url: string; size: number }[]>("/api/admin/previews"),
+    addPreview: (file: File) => {
+      const form = new FormData();
+      form.set("file", file);
+      return json<{ name: string; url: string }>("/api/admin/previews", { method: "POST", body: form });
+    },
+    delPreview: (name: string) => json<{ deleted: boolean }>(`/api/admin/previews/${encodeURIComponent(name)}`, { method: "DELETE" }),
     upload: (file: File) => {
       const form = new FormData();
       form.set("file", file);

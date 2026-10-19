@@ -3,9 +3,10 @@ import { api, ApiError } from "../api";
 import { useApp, showToast } from "../ctx";
 import { tokensText } from "../format";
 import { Icon } from "../icons";
-import { Back, Empty2, Hdr, ModelTile, Tabs, uuid } from "../pf";
+import { Back, Dropdown, Empty2, Hdr, uuid } from "../pf";
+import type { Opt } from "../pf";
 import type { AiModel, AvatarRow, CatalogItem, GenParams, Kind, Quote, Route } from "../types";
-import { Loading, Sheet, useDebounced, useLoad } from "../ui";
+import { Loading, useDebounced, useLoad } from "../ui";
 
 const DEFAULT_SLUG: Record<string, string> = { photo: "nano-banana-2", video: "seedance-2-0", audio: "eleven" };
 const RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9", "21:9"];
@@ -71,7 +72,6 @@ export function Studio({ init }: { init: CreateRoute }) {
 
   const modelsQ = useLoad(() => api.models(activeKind), [activeKind]);
   const [modelId, setModelId] = useState<number | undefined>(init.modelId);
-  const [pickModel, setPickModel] = useState(false);
   const models: AiModel[] = modelsQ.data ?? [];
   const model = models.find((m) => m.id === modelId) ?? (activeKind === "photo" ? models.find((m) => m.id === me.prefs.default_model_id) : undefined) ?? models.find((m) => m.slug === DEFAULT_SLUG[activeKind]) ?? models[0];
 
@@ -90,6 +90,8 @@ export function Studio({ init }: { init: CreateRoute }) {
   const avatarsQ = useLoad(async () => (item?.needs_avatar ? api.avatars() : []), [item?.needs_avatar]);
   const readyAvatars: AvatarRow[] = (avatarsQ.data ?? []).filter((a) => a.status === "ready");
   useEffect(() => { if (item?.needs_avatar && !avatarId && readyAvatars[0]) setAvatarId(readyAvatars[0].id); }, [item?.needs_avatar, readyAvatars, avatarId]);
+
+  const modelOptions: Opt[] = models.map((m) => ({ id: String(m.id), label: m.name, note: m.description.slice(0, 64), right: `${m.price_credits}` }));
 
   const set = (patch: Partial<GenParams>) => setParams((p) => ({ ...p, ...patch }));
   const hasImg = !!photo || !!refOrderId;
@@ -160,9 +162,9 @@ export function Studio({ init }: { init: CreateRoute }) {
       <div className="editor">
         <div className="panel">
           {free && (
-            <div className="pf-seg" role="tablist" style={{ alignSelf: "flex-start" }}>
-              {([["photo", "Изображение", "image"], ["video", "Видео", "video"], ["audio", "Аудио", "audio"]] as const).map(([k, l, ic]) => (
-                <button key={k} role="tab" className={tabKind === k ? "on" : ""} onClick={() => { setTabKind(k); setModelId(undefined); setCount(1); setError(null); }}><Icon name={ic} size={16} />{l}</button>
+            <div className="pf-seg wide3" role="tablist">
+              {([["photo", "Фото", "image"], ["video", "Видео", "video"], ["audio", "Аудио", "audio"]] as const).map(([k, l, ic]) => (
+                <button key={k} role="tab" className={tabKind === k ? "on" : ""} onClick={() => { setTabKind(k); setModelId(undefined); setCount(1); setError(null); }}><Icon name={ic} size={16} /><span>{l}</span></button>
               ))}
             </div>
           )}
@@ -197,14 +199,12 @@ export function Studio({ init }: { init: CreateRoute }) {
               <div className="fld"><span className="lbl">Голос</span>
                 <Pills value={params.voice ?? "alina"} options={[["alina", "Алина"], ["maxim", "Максим"], ["olga", "Ольга"], ["igor", "Игорь"], ["sofia", "Софья"]]} onChange={(v) => set({ voice: v })} /></div>
               <div className="fld-row">
-                <div className="fld"><label htmlFor="em">Эмоция</label>
-                  <select id="em" value={params.emotion ?? "neutral"} onChange={(e) => set({ emotion: e.target.value })}>
-                    {[["neutral", "Нейтрально"], ["joy", "Радостно"], ["calm", "Спокойно"], ["solemn", "Торжественно"], ["sad", "Грустно"], ["inspire", "Вдохновляюще"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select></div>
-                <div className="fld"><label htmlFor="tn">Интонация</label>
-                  <select id="tn" value={params.tone ?? "even"} onChange={(e) => set({ tone: e.target.value })}>
-                    {[["even", "Ровная"], ["question", "Вопросительная"], ["exclaim", "Восклицательная"], ["confidential", "Доверительная"], ["ad", "Рекламная"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select></div>
+                <div className="fld"><span className="lbl">Эмоция</span>
+                  <Dropdown ariaLabel="Эмоция" value={params.emotion ?? "neutral"} onChange={(v) => set({ emotion: v })}
+                    options={[["neutral", "Нейтрально"], ["joy", "Радостно"], ["calm", "Спокойно"], ["solemn", "Торжественно"], ["sad", "Грустно"], ["inspire", "Вдохновляюще"]].map(([id, label]) => ({ id, label }))} /></div>
+                <div className="fld"><span className="lbl">Интонация</span>
+                  <Dropdown ariaLabel="Интонация" value={params.tone ?? "even"} onChange={(v) => set({ tone: v })}
+                    options={[["even", "Ровная"], ["question", "Вопросительная"], ["exclaim", "Восклицательная"], ["confidential", "Доверительная"], ["ad", "Рекламная"]].map(([id, label]) => ({ id, label }))} /></div>
               </div>
               <div className="fld"><label htmlFor="sp">Скорость: {(params.speed ?? 1).toLocaleString("ru-RU")}×</label>
                 <input id="sp" type="range" min={0.5} max={2} step={0.1} value={params.speed ?? 1} onChange={(e) => set({ speed: Number(e.target.value) })} /></div>
@@ -221,10 +221,10 @@ export function Studio({ init }: { init: CreateRoute }) {
           {free && (
             <div className="fld">
               <span className="lbl">Модель</span>
-              <button type="button" className="upl" onClick={() => setPickModel(true)} disabled={!models.length}>
-                <span className="grow"><b>{model?.name ?? "Загружаем…"}</b><span>{model ? `${model.description.slice(0, 80)} · ${tokensText(model.price_credits)}` : ""}</span></span>
-                <Icon name="chevron" size={18} />
-              </button>
+              <Dropdown ariaLabel="Выбрать модель" placeholder={modelsQ.loading ? "Загружаем…" : "Выберите модель"}
+                value={model ? String(model.id) : ""} options={modelOptions} onChange={(v) => setModelId(Number(v))} />
+              {model?.needs_image && <span className="hint">Этой модели нужно исходное изображение.</span>}
+              {model?.text_only && <span className="hint">Эта модель работает только по тексту.</span>}
             </div>
           )}
 
@@ -277,25 +277,6 @@ export function Studio({ init }: { init: CreateRoute }) {
           <span className="hint">Если генерация не удастся, токены вернутся автоматически.</span>
         </div>
       </div>
-
-      {pickModel && (
-        <Sheet title="Выбрать модель" onClose={() => setPickModel(false)}>
-          <ModelPicker kind={activeKind} models={models} selected={model?.id} onPick={(m) => { setModelId(m.id); setPickModel(false); }} />
-        </Sheet>
-      )}
     </>
-  );
-}
-
-function ModelPicker({ kind, models, selected, onPick }: { kind: Kind; models: AiModel[]; selected?: number; onPick: (m: AiModel) => void }) {
-  const meta = useLoad(() => api.meta(), []);
-  const [tag, setTag] = useState("all");
-  const tags = meta.data?.models[kind]?.tags ?? [];
-  const list = tag === "all" ? models : models.filter((m) => m.tags?.includes(tag));
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 12 }}>
-      <Tabs value={tag} onChange={setTag} items={[{ id: "all", label: "Все" }, ...tags.filter((t) => t.count > 0).map((t) => ({ id: t.id, label: t.label }))]} />
-      <div className="pf-grid wide">{list.map((m) => <ModelTile key={m.id} m={m} selected={m.id === selected} onPick={() => onPick(m)} />)}</div>
-    </div>
   );
 }

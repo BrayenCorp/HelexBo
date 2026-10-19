@@ -11,9 +11,11 @@ class Storage:
         self.uploads = self.root / "uploads"
         self.results = self.root / "results"
         self.media = self.root / "media"  # публичные примеры работ, обложки, баннер
+        self.previews = self.media / "previews"  # ваши фото для обложек карточек (ставятся автоматически)
         self.uploads.mkdir(parents=True, exist_ok=True)
         self.results.mkdir(parents=True, exist_ok=True)
         self.media.mkdir(parents=True, exist_ok=True)
+        self.previews.mkdir(parents=True, exist_ok=True)
 
     def save_upload(self, data: bytes) -> str:
         path = self.uploads / f"{uuid.uuid4().hex}.jpg"
@@ -28,6 +30,11 @@ class Storage:
     def save_media(self, data: bytes, ext: str) -> str:
         name = f"{uuid.uuid4().hex}.{ext}"
         (self.media / name).write_bytes(data)
+        return name
+
+    def save_preview(self, data: bytes, ext: str = "jpg") -> str:
+        name = f"{uuid.uuid4().hex}.{ext}"
+        (self.previews / name).write_bytes(data)
         return name
 
     @staticmethod

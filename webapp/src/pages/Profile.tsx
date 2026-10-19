@@ -4,7 +4,7 @@ import { useApp, showToast } from "../ctx";
 import { tokensText } from "../format";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
-import { Back, Hdr, Sec } from "../pf";
+import { Back, Dropdown, Hdr, Sec } from "../pf";
 import { openExternal, tgPhoto } from "../telegram";
 import type { Prefs, Route } from "../types";
 import { Avatar, Modal, Toggle, useLoad } from "../ui";
@@ -56,17 +56,18 @@ export function Settings() {
       <Back onClick={nav.back} />
       <Hdr title="Настройки" />
       <div className="panel">
-        <div className="fld"><label htmlFor="lg">Язык</label><select id="lg" value="ru" disabled><option value="ru">Русский</option></select><span className="hint">Другие языки появятся позже.</span></div>
-        <div className="fld"><label htmlFor="dm">Модель по умолчанию</label>
-          <select id="dm" value={prefs.default_model_id ?? ""} onChange={(e) => save(e.target.value ? { default_model_id: Number(e.target.value) } : { clear_model: true, default_model_id: null })}>
-            <option value="">Выбирать автоматически</option>
-            {(models.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select></div>
+        <div className="fld"><span className="lbl">Язык</span>
+          <Dropdown ariaLabel="Язык" value="ru" options={[{ id: "ru", label: "Русский" }]} onChange={() => undefined} disabled />
+          <span className="hint">Другие языки появятся позже.</span></div>
+        <div className="fld"><span className="lbl">Модель по умолчанию</span>
+          <Dropdown ariaLabel="Модель по умолчанию" value={prefs.default_model_id ? String(prefs.default_model_id) : ""}
+            options={[{ id: "", label: "Выбирать автоматически" }, ...(models.data ?? []).map((m) => ({ id: String(m.id), label: m.name, note: m.description.slice(0, 64), right: `${m.price_credits}` }))]}
+            onChange={(v) => save(v ? { default_model_id: Number(v) } : { clear_model: true, default_model_id: null })} /></div>
         <div className="fld-row">
-          <div className="fld"><label htmlFor="rt">Соотношение сторон</label>
-            <select id="rt" value={prefs.ratio} onChange={(e) => save({ ratio: e.target.value })}>{["1:1", "3:4", "4:3", "9:16", "16:9", "21:9"].map((r) => <option key={r}>{r}</option>)}</select></div>
-          <div className="fld"><label htmlFor="ql">Качество</label>
-            <select id="ql" value={prefs.quality} onChange={(e) => save({ quality: e.target.value })}><option value="standard">Стандарт</option><option value="high">Высокое</option></select></div>
+          <div className="fld"><span className="lbl">Соотношение сторон</span>
+            <Dropdown ariaLabel="Соотношение сторон" value={prefs.ratio} options={["1:1", "3:4", "4:3", "9:16", "16:9", "21:9"].map((r) => ({ id: r, label: r }))} onChange={(v) => save({ ratio: v })} /></div>
+          <div className="fld"><span className="lbl">Качество</span>
+            <Dropdown ariaLabel="Качество" value={prefs.quality} options={[{ id: "standard", label: "Стандарт" }, { id: "high", label: "Высокое" }]} onChange={(v) => save({ quality: v })} /></div>
         </div>
         <div className="fld"><span className="lbl">Мои интересы</span>
           <div className="pill-row">{INTERESTS.map(([k, l]) => <button key={k} className={`pill ${prefs.interests.includes(k) ? "on" : ""}`} onClick={() => save({ interests: prefs.interests.includes(k) ? prefs.interests.filter((x) => x !== k) : [...prefs.interests, k] })}>{l}</button>)}</div></div>

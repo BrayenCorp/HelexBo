@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { api, ApiError } from "../api";
 import { Icon } from "../icons";
+import { Dropdown } from "../pf";
 import { Cover, ErrorBox, Modal } from "../ui";
 
 export const errText = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
@@ -27,14 +28,9 @@ export function TextArea({ value, onChange, rows = 3, placeholder }: { value: st
   return <textarea className="input" rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />;
 }
 
+/** Выбор из списка — то же плавное выпадающее меню, что и в приложении. */
 export function SelectInput({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: [string, string][] }) {
-  return (
-    <span className="select">
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-    </span>
-  );
+  return <Dropdown value={value} onChange={onChange} options={options.map(([id, label]) => ({ id, label }))} />;
 }
 
 export function Stepper({ value, onChange, min = 0, step = 1 }: { value: number; onChange: (v: number) => void; min?: number; step?: number }) {

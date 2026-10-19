@@ -96,9 +96,9 @@
 .pf-rail > * { flex: 0 0 168px; }
 @media (min-width: 900px) { .pf-rail { margin: 0; padding: 0; } .pf-rail > * { flex-basis: 200px; } }
 .tile { position: relative; display: flex; flex-direction: column; gap: 0; text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: 14px; overflow: hidden; padding: 0; color: var(--ink); transition: border-color 0.15s; }
-button.tile:hover { border-color: var(--accent); }
-.tile-media { position: relative; aspect-ratio: 4 / 5; background: #111; overflow: hidden; display: grid; place-items: center; }
-.tile-media.sq { aspect-ratio: 1; } .tile-media.wd { aspect-ratio: 16 / 10; }
+button.tile:hover, button.tile.on { border-color: var(--accent); }
+.tile-media { position: relative; aspect-ratio: 9 / 16; background: #111; overflow: hidden; display: grid; place-items: center; }
+.tile-media.sq { aspect-ratio: 1; } .tile-media.wd { aspect-ratio: 16 / 9; }
 .tile-media img, .tile-media video { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1); }
 .tile-ph { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #555; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px; text-align: center; }
 .tile-ph svg { opacity: 0.6; }
@@ -134,9 +134,9 @@ button.row-card:hover { border-color: var(--accent); }
 .demo-note { display: flex; gap: 10px; align-items: flex-start; border: 1px dashed var(--line2); border-radius: 12px; padding: 10px 12px; color: var(--muted); font-size: 13px; }
 
 /* Редактор */
-.editor { display: grid; gap: 20px; grid-template-columns: 1fr; align-items: start; }
+.editor { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 1000px) { .editor { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); } .editor .stick { position: sticky; top: 76px; } }
-.panel { border: 1px solid var(--line); background: var(--card); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.panel { min-width: 0; border: 1px solid var(--line); background: var(--card); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .fld { display: flex; flex-direction: column; gap: 6px; }
 .fld > label, .fld > .lbl { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .fld textarea, .fld input, .fld select { width: 100%; border: 1px solid var(--line2); border-radius: 12px; padding: 11px 13px; background: var(--raise); }
@@ -240,7 +240,7 @@ button.row-card:hover { border-color: var(--accent); }
 .empty-pf { border: 1px dashed var(--line2); border-radius: 16px; padding: 36px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); }
 .empty-pf b { color: var(--ink); font-size: 16px; }
 .prompt-text { font-size: 13.5px; color: var(--ink2); line-height: 1.5; white-space: pre-wrap; }
-.sk-card { aspect-ratio: 4 / 5; border-radius: 14px; }
+.sk-card { aspect-ratio: 9 / 16; border-radius: 14px; }
 .grow { flex: 1; }
 .logo-wrap { display: inline-flex; }
 @media (min-width: 900px) { .logo-wrap { display: none; } }
@@ -310,3 +310,34 @@ button.row-card:hover { border-color: var(--accent); }
   .editor .stick .btn.big { padding: 13px; font-size: 16px; }
   .editor .stick .notice { padding: 8px 10px; font-size: 12.5px; }
 }
+
+/* ---------- Выпадающее меню (одно на всё приложение) ---------- */
+.dd { position: relative; width: 100%; }
+.dd-btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid var(--line2); background: var(--raise, var(--card)); color: var(--ink); border-radius: 12px; padding: 11px 13px; transition: border-color 0.15s; }
+.dd-btn:hover:not(:disabled) { border-color: var(--accent); }
+.dd.open .dd-btn { border-color: var(--accent); }
+.dd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dd-btn svg { flex: none; transition: transform 0.2s ease; color: var(--muted); }
+.dd.open .dd-btn svg:last-child { transform: rotate(180deg); }
+.dd-val { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.dd-val b { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-val span { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-right { flex: none; color: var(--accent2); font-size: 12.5px; font-weight: 700; }
+.dd-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; max-height: min(320px, 50vh); overflow-y: auto; overscroll-behavior: contain; background: var(--card); border: 1px solid var(--line2); border-radius: 14px; padding: 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); animation: ddin 0.16s ease both; }
+.dd-menu.up { top: auto; bottom: calc(100% + 6px); transform-origin: bottom; animation-name: ddup; }
+@keyframes ddin { from { opacity: 0; transform: translateY(-6px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes ddup { from { opacity: 0; transform: translateY(6px) scale(0.985); } to { opacity: 1; transform: none; } }
+.dd-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); border-radius: 10px; padding: 10px 11px; }
+.dd-item:hover:not(:disabled) { background: var(--soft); }
+.dd-item.on { background: var(--soft); }
+.dd-item.on .dd-val b { color: var(--accent); }
+.dd-item:disabled { opacity: 0.45; }
+.dd-item svg { flex: none; color: var(--accent); }
+.dd-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
+:root[data-theme="dark"] .dd-item:hover:not(:disabled), :root[data-theme="dark"] .dd-item.on { background: #1a1a1a; }
+.pf-seg.wide3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+.pf-seg.wide3 button { justify-content: center; padding: 10px 4px; min-width: 0; }
+.pf-seg.wide3 button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 420px) { .pf-seg.wide3 button { font-size: 11px; letter-spacing: 0.02em; gap: 5px; } }
+.select-wrap { display: block; min-width: 170px; }
+.toolbar .select-wrap { flex: 1; min-width: 160px; }

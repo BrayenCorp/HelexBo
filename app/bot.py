@@ -22,7 +22,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from .context import AppContext
 from .errors import DomainError, InsufficientCredits
-from .services import categories, credits, events, methods, orders, payments, templates, users
+from .services import catalog, categories, credits, events, methods, orders, payments, templates, users
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -42,22 +42,48 @@ def esc(text: object) -> str:
 
 BRAND = "Nolla AI"
 BOT_DESCRIPTION = (
-    "Nolla AI — AI-платформа для творчества в Telegram. Создавайте изображения, видео и озвучку с лучшими "
-    "AI-моделями: эффекты, тренды, фотосессии, аватары и маркетинг. Первое фото и первое видео бесплатно."
+    "Nolla AI ✨ — студия для творчества в Telegram. Картинки, видео и озвучка с лучшими AI-моделями: "
+    "эффекты 🪄, тренды 🔥, фотосессии 📸, аватары 🧑‍🎤 и реклама 📣. Опишите идею — остальное сделаем мы."
 )
-BOT_SHORT_DESCRIPTION = "Изображения, видео и озвучка с помощью AI. Первое фото бесплатно."
+BOT_SHORT_DESCRIPTION = "✨ Картинки, видео и озвучка с помощью AI. Опишите идею — и готово."
+
+
+# Эмодзи для разделов и категорий каталога — чтобы в чате было живо и понятно.
+SECTION_EMOJI = {"effect": "🪄", "trend": "🔥", "photoshoot": "📸", "prompt": "✍️", "marketing": "📣", "mtool": "🛠", "avatar": "🧑‍🎤"}
+SECTION_TITLE = {"effect": "Эффекты", "trend": "Тренды", "photoshoot": "Фотосессии", "prompt": "Промпты", "marketing": "Маркетинг", "avatar": "Аватары"}
+TAG_EMOJI = {
+    "women": "💃", "men": "🕺", "kids": "🧒", "family": "👨‍👩‍👧", "couples": "💞", "animals": "🐾", "birthday": "🎂",
+    "fashion": "👗", "luxury": "💎", "lifestyle": "🌿", "business": "💼", "travel": "✈️", "editorial": "📰",
+    "street": "🛹", "cinema": "🎬", "products": "📦", "ads": "📣", "social": "📱", "marketplaces": "🛒", "ugc": "🎥",
+    "brands": "🏷", "architecture": "🏛", "marketing": "📣", "edit": "✏️", "photo": "🖼", "video": "🎞", "improve": "✨",
+    "portrait": "🙂", "dance": "🕺",
+}
+PAGE_SIZE = 8
+
+
+def card_emoji(t: dict) -> str:
+    """Эмодзи карточки: по её категории, затем по разделу, затем общий значок."""
+    return TAG_EMOJI.get(t.get("tag") or "") or SECTION_EMOJI.get(t.get("section") or "", "") or "✨"
+
+
+def open_button(ctx: AppContext, text: str, slug: str = "") -> InlineKeyboardButton:
+    """Кнопка, открывающая Mini App (при необходимости — сразу на нужной карточке)."""
+    if ctx.settings.webapp_url:
+        url = ctx.settings.webapp_url.rstrip("/") + (f"?slug={slug}" if slug else "")
+        return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))
+    return InlineKeyboardButton(text=text, callback_data="menu:app")
 
 
 def main_menu(ctx: AppContext) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    if ctx.settings.webapp_url:  # платформа — главное: все разделы живут в приложении
-        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", web_app=WebAppInfo(url=ctx.settings.webapp_url)))
-    else:  # WEBAPP_URL не задан — кнопка есть, но объясняет, что нужно сделать
-        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", callback_data="menu:app"))
-    kb.row(InlineKeyboardButton(text="✦ Создать фото", callback_data="menu:photo"),
-           InlineKeyboardButton(text="✦ Создать видео", callback_data="menu:video"))
-    kb.row(InlineKeyboardButton(text="Мои токены", callback_data="menu:credits"),
-           InlineKeyboardButton(text="Мои работы", callback_data="menu:works"))
+    kb.row(open_button(ctx, f"🎨 Открыть {BRAND}"))
+    kb.row(InlineKeyboardButton(text="🪄 Эффекты", callback_data="pf:effect:0"),
+           InlineKeyboardButton(text="🔥 Тренды", callback_data="pf:trend:0"))
+    kb.row(InlineKeyboardButton(text="📸 Фотосессии", callback_data="pf:photoshoot:0"),
+           InlineKeyboardButton(text="🧑‍🎤 Аватары", callback_data="pf:avatar:0"))
+    kb.row(InlineKeyboardButton(text="✍️ Промпты", callback_data="pf:prompt:0"),
+           InlineKeyboardButton(text="📣 Маркетинг", callback_data="pf:marketing:0"))
+    kb.row(InlineKeyboardButton(text="🖼 Мои работы", callback_data="menu:works"))
     return kb.as_markup()
 
 
@@ -109,20 +135,16 @@ async def cmd_start(message: Message, state: FSMContext, ctx: AppContext):
     if (message.text or "").startswith("/start"):
         events.log(ctx.db, "bot_started", message.from_user.id)
     prof = users.profile(ctx.db, message.from_user.id)
-    free = prof["free"]
     if not prof["welcomed"]:
-        with ctx.db.read() as c:
-            bonus = c.execute("SELECT COALESCE(SUM(delta),0) FROM credit_ledger WHERE user_id = ? AND reason = 'welcome_bonus'", (message.from_user.id,)).fetchone()[0]
         users.mark_welcomed(ctx.db, message.from_user.id)
-        await message.answer(f"Добро пожаловать в {BRAND}! Ваш аккаунт создан." + (f"\nВаш стартовый бонус: {bonus} токенов." if bonus else ""))
+        await message.answer(f"🎉 Добро пожаловать в {BRAND}! Рады вас видеть.")
     name = esc(message.from_user.first_name or "")
     text = (
-        f"<b>{BRAND}</b>\n"
-        f"{'Здравствуйте, ' + name + '.' if name else 'Здравствуйте.'}\n\n"
-        "Изображения, видео и озвучка с помощью искусственного интеллекта. Все разделы — в приложении.\n\n"
-        f"Подарок: первое фото — {'бесплатно' if free['photo'] else 'использовано'}, "
-        f"первое видео — {'бесплатно' if free['video'] else 'использовано'}.\n\n"
-        "Выберите, что создаём:"
+        f"✨ <b>{BRAND}</b>\n"
+        f"{'Привет, ' + name + '! 👋' if name else 'Привет! 👋'}\n\n"
+        "Здесь вы создаёте картинки, видео и озвучку — просто опишите идею 🪄\n"
+        "А ещё: готовые эффекты 🪄, тренды 🔥, фотосессии 📸, аватары 🧑‍🎤 и промпты ✍️\n\n"
+        "Загляните в каталог или открывайте приложение 👇"
     )
     await message.answer(text, reply_markup=main_menu(ctx))
 
@@ -130,13 +152,69 @@ async def cmd_start(message: Message, state: FSMContext, ctx: AppContext):
 @router.callback_query(F.data == "menu:home")
 async def cb_home(call: CallbackQuery, state: FSMContext, ctx: AppContext):
     await state.clear()
-    await call.message.answer("Главное меню:", reply_markup=main_menu(ctx))
+    await call.message.answer("🏠 Главное меню:", reply_markup=main_menu(ctx))
     await call.answer()
 
 
 @router.callback_query(F.data == "menu:app")
 async def cb_app_missing(call: CallbackQuery):
-    await call.answer("Mini App ещё не подключён: администратору нужно задать WEBAPP_URL.", show_alert=True)
+    await call.answer("Приложение ещё не подключено: администратору нужно задать WEBAPP_URL.", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("pf:"))
+async def cb_platform_section(call: CallbackQuery, ctx: AppContext):
+    """Каталог в чате: только эмодзи и название. Все подробности — в приложении."""
+    await ensure_user(ctx, call.from_user)
+    parts = call.data.split(":")
+    if parts[1] == "item":
+        return await _send_card(call, ctx, int(parts[2]))
+    section, page = parts[1], int(parts[2] if len(parts) > 2 else 0)
+    items = catalog.list_items(ctx.db, section)
+    if section == "marketing":
+        items += catalog.list_items(ctx.db, "mtool")
+    kb = InlineKeyboardBuilder()
+    chunk = items[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
+    for t in chunk:
+        kb.row(InlineKeyboardButton(text=f"{card_emoji(t)} {t['title']}", callback_data=f"pf:item:{t['id']}"))
+    nav = []
+    if page:
+        nav.append(InlineKeyboardButton(text="‹ Назад", callback_data=f"pf:{section}:{page - 1}"))
+    if (page + 1) * PAGE_SIZE < len(items):
+        nav.append(InlineKeyboardButton(text="Ещё ›", callback_data=f"pf:{section}:{page + 1}"))
+    if nav:
+        kb.row(*nav)
+    kb.row(open_button(ctx, "🎨 Открыть приложение"))
+    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
+    emoji, title = SECTION_EMOJI.get(section, "✨"), SECTION_TITLE.get(section, "Каталог")
+    text = f"{emoji} <b>{title}</b>\nВыбирайте — и открывайте в приложении 👇" if chunk else f"{emoji} <b>{title}</b>\nПока пусто."
+    await call.message.answer(text, reply_markup=kb.as_markup())
+    await call.answer()
+
+
+async def _send_card(call: CallbackQuery, ctx: AppContext, item_id: int) -> None:
+    try:
+        t = catalog.get_item(ctx.db, item_id)
+    except DomainError as e:
+        return await call.answer(e.message, show_alert=True)
+    kb = InlineKeyboardBuilder()
+    kb.row(open_button(ctx, "🚀 Открыть в приложении", t["slug"]))
+    kb.row(InlineKeyboardButton(text="‹ К списку", callback_data=f"pf:{t['section']}:0"),
+           InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
+    caption = f"{card_emoji(t)} <b>{esc(t['title'])}</b>"
+    if t["description"]:
+        caption += f"\n{esc(t['description'])}"
+    caption += "\n\nНажмите кнопку — и всё откроется в приложении ✨"
+    photo = t["preview_url"]
+    if photo and ctx.settings.webapp_url and photo.startswith("/"):
+        photo = ctx.settings.webapp_url.rstrip("/") + photo
+    if photo and photo.startswith("https://") and t["preview_kind"] == "image":
+        try:
+            await call.message.answer_photo(photo, caption=caption, reply_markup=kb.as_markup())
+            return await call.answer()
+        except Exception as e:  # обложка может быть недоступна снаружи — тогда просто текст
+            log.info("Обложка карточки не отправилась: %s", e)
+    await call.message.answer(caption, reply_markup=kb.as_markup())
+    await call.answer()
 
 
 @router.callback_query(F.data.in_({"menu:photo", "menu:video"}))
@@ -145,15 +223,15 @@ async def cb_choose_kind(call: CallbackQuery, state: FSMContext, ctx: AppContext
     await ensure_user(ctx, call.from_user)
     kind = call.data.split(":")[1]
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="✦ Своё описание", callback_data=f"free:{kind}"))
+    kb.row(InlineKeyboardButton(text="✍️ Своё описание", callback_data=f"free:{kind}"))
     shown = 0
     for c in categories.list_public(ctx.db):
         n = len(templates.list_published(ctx.db, kind=kind, category=c["id"]))
         if n:
             kb.row(InlineKeyboardButton(text=f"{c['title']} · {n}", callback_data=f"cat:{kind}:{c['id']}"))
             shown += 1
-    kb.row(InlineKeyboardButton(text="‹ В меню", callback_data="menu:home"))
-    await call.message.answer("Опишите идею своими словами или выберите категорию:" if shown else "Опишите идею своими словами:", reply_markup=kb.as_markup())
+    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
+    await call.message.answer("Опишите идею своими словами или выберите категорию 👇" if shown else "✍️ Опишите идею своими словами:", reply_markup=kb.as_markup())
     await call.answer()
 
 
@@ -166,7 +244,7 @@ async def cb_category(call: CallbackQuery, ctx: AppContext):
     for t in items:
         kb.row(InlineKeyboardButton(text=f"{t['title']} · {price_label(t, free)}", callback_data=f"tpl:{t['id']}"))
     kb.row(InlineKeyboardButton(text="‹ Категории", callback_data=f"menu:{kind}"))
-    await call.message.answer("Выберите образ:", reply_markup=kb.as_markup())
+    await call.message.answer("Выберите образ 👇", reply_markup=kb.as_markup())
     await call.answer()
 
 
@@ -179,12 +257,11 @@ async def cb_template(call: CallbackQuery, state: FSMContext, ctx: AppContext):
     free = orders.free_status(ctx.db, call.from_user.id)[t["kind"]]
     await state.set_state(Flow.waiting_photo)
     await state.update_data(template_id=t["id"])
-    cost = "Бесплатно — ваша первая попытка." if free else f"Стоимость: {t['price_credits']} ток."
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="Отмена", callback_data="menu:home"))
+    kb.row(InlineKeyboardButton(text="✖️ Отмена", callback_data="menu:home"))
     await call.message.answer(
-        f"<b>{esc(t['title'])}</b>\n{esc(t['description'])}\n\n{cost}\n\n"
-        "Отправьте фото: лицо хорошо видно, хороший свет. Для парных образов — фото, где вы вместе.",
+        f"{card_emoji(t)} <b>{esc(t['title'])}</b>\n{esc(t['description'])}\n\n"
+        "📷 Пришлите фото: лицо хорошо видно, хороший свет. Для парных образов — фото, где вы вместе.",
         reply_markup=kb.as_markup(),
     )
     await call.answer()
@@ -202,7 +279,7 @@ async def _submit(message: Message, state: FSMContext, ctx: AppContext, file_id:
     template_id, free_kind = data.get("template_id"), data.get("free_kind")
     user = user or message.from_user
     if not template_id and not free_kind:
-        return await message.answer("Сначала выберите, что создаём.", reply_markup=main_menu(ctx))
+        return await message.answer("Сначала выберите, что создаём 👇", reply_markup=main_menu(ctx))
     await ensure_user(ctx, user)
     image = await _download(message.bot, file_id) if file_id else None
     try:
@@ -213,17 +290,16 @@ async def _submit(message: Message, state: FSMContext, ctx: AppContext, file_id:
                 image_bytes=image, prompt=data.get("prompt", ""), source="bot", max_bytes=ctx.settings.max_upload_bytes,
             )
         )
-    except InsufficientCredits as e:
+    except InsufficientCredits:
         kb = InlineKeyboardBuilder()
-        kb.row(InlineKeyboardButton(text="Пополнить токены", callback_data="menu:credits"))
-        return await message.answer(f"{esc(e.message)}.", reply_markup=kb.as_markup())
+        kb.row(open_button(ctx, "🎨 Открыть приложение"))
+        return await message.answer("Чтобы продолжить, загляните в приложение ✨", reply_markup=kb.as_markup())
     except DomainError as e:
         return await message.answer(esc(e.message))
     await state.clear()
     if not created:
         return
-    note = "бесплатная попытка" if order["used_free"] else f"списано {order['price_credits']} ток."
-    await message.answer(f"Создаём ({note}). Это займёт немного времени — пришлю результат сюда.")
+    await message.answer("🪄 Творим! Это займёт немного времени — пришлю результат сюда.")
     ctx.runner.schedule(order["id"])
 
 
@@ -237,7 +313,7 @@ async def cb_free(call: CallbackQuery, state: FSMContext, ctx: AppContext):
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="Отмена", callback_data="menu:home"))
     await call.message.answer(
-        "Опишите, что хотите получить (до 500 символов).\nНапример: <i>девушка в студии, мягкий свет, реалистично</i>",
+        "✍️ Опишите, что хотите получить (до 500 символов).\nНапример: <i>девушка в студии, мягкий свет, реалистично</i>",
         reply_markup=kb.as_markup(),
     )
     await call.answer()
@@ -247,13 +323,13 @@ async def cb_free(call: CallbackQuery, state: FSMContext, ctx: AppContext):
 async def got_prompt(message: Message, state: FSMContext):
     text = message.text.strip()
     if len(text) > 500:
-        return await message.answer(f"Описание длиннее 500 символов ({len(text)}). Сократите, пожалуйста.")
+        return await message.answer(f"Описание длиннее 500 символов ({len(text)}). Сократите, пожалуйста 🙏")
     await state.update_data(prompt=text)
     await state.set_state(Flow.waiting_free_photo)
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="Создать без фото", callback_data="free_go"))
+    kb.row(InlineKeyboardButton(text="✨ Создать без фото", callback_data="free_go"))
     kb.row(InlineKeyboardButton(text="Отмена", callback_data="menu:home"))
-    await message.answer("Хотите добавить своё фото? Отправьте его — или создайте без фото.", reply_markup=kb.as_markup())
+    await message.answer("📷 Хотите добавить своё фото? Отправьте его — или создайте без фото.", reply_markup=kb.as_markup())
 
 
 @router.callback_query(Flow.waiting_free_photo, F.data == "free_go")
@@ -270,7 +346,7 @@ async def free_photo(message: Message, state: FSMContext, ctx: AppContext):
 @router.message(Flow.waiting_prompt)
 @router.message(Flow.waiting_free_photo)
 async def free_other(message: Message):
-    await message.answer("Пришлите текстовое описание или фото. Для отмены нажмите «Отмена» выше.")
+    await message.answer("✍️ Пришлите описание или фото. Для отмены нажмите «Отмена» выше.")
 
 
 @router.message(Flow.waiting_photo, F.photo)
@@ -281,34 +357,23 @@ async def got_photo(message: Message, state: FSMContext, ctx: AppContext):
 @router.message(Flow.waiting_photo, F.document)
 async def got_document(message: Message, state: FSMContext, ctx: AppContext):
     if not (message.document.mime_type or "").startswith("image/"):
-        return await message.answer("Пришлите фото (изображение), пожалуйста.")
+        return await message.answer("📷 Пришлите фото (изображение), пожалуйста.")
     await _submit(message, state, ctx, message.document.file_id)
 
 
 @router.message(Flow.waiting_photo)
 async def waiting_photo_other(message: Message):
-    await message.answer("Жду ваше фото. Или нажмите «Отмена» выше.")
+    await message.answer("📷 Жду ваше фото. Или нажмите «Отмена» выше.")
 
 
-# ---------- кредиты и оплата ----------
+# ---------- баланс и оплата живут в приложении; обработчики оставлены для старых кнопок ----------
 @router.callback_query(F.data == "menu:credits")
 async def cb_credits(call: CallbackQuery, ctx: AppContext):
     await ensure_user(ctx, call.from_user)
-    prof = users.profile(ctx.db, call.from_user.id)
-    ledger = credits.get_ledger(ctx.db, call.from_user.id, 5)
-    names = {"purchase": "пополнение", "purchase_bonus": "бонус к пакету", "order_charge": "генерация", "order_refund": "возврат", "welcome_bonus": "стартовый бонус", "admin_adjust": "корректировка", "test_grant": "начисление"}
-    lines = [f"{'+' if r['delta'] > 0 else ''}{r['delta']} — {names.get(r['reason'], r['reason'])}" for r in ledger]
-    text = f"<b>Баланс: {prof['balance']} ток.</b>\n"
-    text += f"Бесплатная попытка: фото — {'доступна' if prof['free']['photo'] else 'использована'}, видео — {'доступна' if prof['free']['video'] else 'использована'}\n"
-    if lines:
-        text += "\nПоследние операции:\n" + "\n".join(lines) + "\n"
-    if ctx.settings.payments_mode == "test":
-        text += "\nТестовый режим оплаты: реальные деньги не списываются."
     kb = InlineKeyboardBuilder()
-    for p in payments.list_packages(ctx.db):
-        kb.row(InlineKeyboardButton(text=f"{p['title']}: {p['credits']}{('+' + str(p['bonus'])) if p['bonus'] else ''} ток. — {p['price_stars']} ⭐", callback_data=f"buy:{p['id']}"))
-    kb.row(InlineKeyboardButton(text="‹ В меню", callback_data="menu:home"))
-    await call.message.answer(text, reply_markup=kb.as_markup())
+    kb.row(open_button(ctx, "🎨 Открыть приложение"))
+    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
+    await call.message.answer("💼 Баланс, пополнение и история — в приложении.", reply_markup=kb.as_markup())
     await call.answer()
 
 
@@ -371,12 +436,13 @@ async def cb_works(call: CallbackQuery, ctx: AppContext):
     items = orders.list_user_orders(ctx.db, call.from_user.id, 8)
     kb = InlineKeyboardBuilder()
     if not items:
-        text = "Пока нет работ. Создайте первую — первое фото и первое видео бесплатно."
+        text = "🖼 Работ пока нет. Создайте первую — это весело! ✨"
     else:
-        text = "<b>Мои работы</b>\nНажмите, чтобы получить файл ещё раз:"
+        text = "🖼 <b>Мои работы</b>\nНажмите, чтобы получить файл ещё раз 👇"
         for o in items:
             kb.row(InlineKeyboardButton(text=f"{STATUS_ICON[o['status']]} {o['title']}", callback_data=f"work:{o['id']}"))
-    kb.row(InlineKeyboardButton(text="‹ В меню", callback_data="menu:home"))
+    kb.row(open_button(ctx, "🎨 Открыть приложение"))
+    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
     await call.message.answer(text, reply_markup=kb.as_markup())
     await call.answer()
 
@@ -387,7 +453,7 @@ async def cb_work(call: CallbackQuery, ctx: AppContext):
     if o is None:
         return await call.answer("Работа не найдена", show_alert=True)
     if o["status"] in ("created", "processing"):
-        return await call.answer("Ещё создаётся — результат придёт в чат.", show_alert=True)
+        return await call.answer("⏳ Ещё создаётся — результат придёт в чат.", show_alert=True)
     await BotNotifier(call.bot, ctx).notify_order(o)
     await call.answer()
 
@@ -398,21 +464,22 @@ async def cmd_create(message: Message, state: FSMContext, ctx: AppContext):
     await state.clear()
     _log_command(ctx, message.from_user.id, "create")
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="✦ Создать фото", callback_data="menu:photo"), InlineKeyboardButton(text="✦ Создать видео", callback_data="menu:video"))
-    if ctx.settings.webapp_url:
-        kb.row(InlineKeyboardButton(text=f"Открыть {BRAND}", web_app=WebAppInfo(url=ctx.settings.webapp_url)))
-    await message.answer("Что создаём?", reply_markup=kb.as_markup())
+    kb.row(open_button(ctx, "🎨 Открыть приложение"))
+    kb.row(InlineKeyboardButton(text="🖼 Фото в чате", callback_data="menu:photo"),
+           InlineKeyboardButton(text="🎞 Видео в чате", callback_data="menu:video"))
+    await message.answer("Что создаём? 🪄\nВ приложении — все модели, эффекты и настройки ✨", reply_markup=kb.as_markup())
 
 
 @router.message(Command("profile"))
 async def cmd_profile(message: Message, ctx: AppContext):
     _log_command(ctx, message.from_user.id, "profile")
-    prof = users.profile(ctx.db, message.from_user.id)
     done = orders.count_done_by_kind(ctx.db, message.from_user.id)
-    text = (f"<b>Профиль</b>\nТариф: {'PRO' if prof['is_pro'] else 'Бесплатный'}\nБаланс: {prof['balance']} ток.\n"
-            f"Генераций: {done['photo'] + done['video'] + done['audio']} (фото {done['photo']}, видео {done['video']}, аудио {done['audio']})")
+    name = esc(message.from_user.first_name or "")
+    text = (f"👤 <b>Профиль</b>{': ' + name if name else ''}\n"
+            f"🖼 Картинок: {done['photo']}\n🎞 Видео: {done['video']}\n🎧 Аудио: {done['audio']}\n\n"
+            "Все подробности — в приложении ✨")
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="Пополнить токены", callback_data="menu:credits"))
+    kb.row(open_button(ctx, "🎨 Открыть приложение"))
     await message.answer(text, reply_markup=kb.as_markup())
 
 
@@ -422,9 +489,9 @@ async def cmd_history(message: Message, ctx: AppContext):
     items = orders.list_user_orders(ctx.db, message.from_user.id, 8)
     kb = InlineKeyboardBuilder()
     if not items:
-        text = "Пока нет работ. Первое фото и первое видео — бесплатно."
+        text = "🕘 Работ пока нет. Самое время создать первую! ✨"
     else:
-        text = "<b>История генераций</b>\nНажмите, чтобы получить файл ещё раз:"
+        text = "🕘 <b>История</b>\nНажмите, чтобы получить файл ещё раз 👇"
         for o in items:
             kb.row(InlineKeyboardButton(text=f"{STATUS_ICON[o['status']]} {o['title']}", callback_data=f"work:{o['id']}"))
     await message.answer(text, reply_markup=kb.as_markup())
@@ -432,7 +499,7 @@ async def cmd_history(message: Message, ctx: AppContext):
 
 def _settings_kb(on: bool) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text=("Результаты в чат: включено ✓" if on else "Результаты в чат: выключено"), callback_data=f"set:notify:{0 if on else 1}"))
+    kb.row(InlineKeyboardButton(text=("🔔 Результаты в чат: включено" if on else "🔕 Результаты в чат: выключено"), callback_data=f"set:notify:{0 if on else 1}"))
     return kb.as_markup()
 
 
@@ -440,7 +507,7 @@ def _settings_kb(on: bool) -> InlineKeyboardMarkup:
 async def cmd_settings(message: Message, ctx: AppContext):
     _log_command(ctx, message.from_user.id, "settings")
     on = users.profile(ctx.db, message.from_user.id)["notify_chat"]
-    await message.answer("<b>Настройки</b>\nПрисылать готовые фото и видео в этот чат?", reply_markup=_settings_kb(on))
+    await message.answer("⚙️ <b>Настройки</b>\nПрисылать готовые работы в этот чат?", reply_markup=_settings_kb(on))
 
 
 @router.callback_query(F.data.startswith("set:notify:"))
@@ -448,7 +515,7 @@ async def cb_set_notify(call: CallbackQuery, ctx: AppContext):
     on = call.data.endswith(":1")
     users.set_notify_chat(ctx.db, call.from_user.id, on)
     await call.message.edit_reply_markup(reply_markup=_settings_kb(on))
-    await call.answer("Сохранено")
+    await call.answer("Сохранено ✨")
 
 
 # ---------- отправка результата в чат ----------
@@ -465,9 +532,9 @@ class BotNotifier:
         if order["status"] != "done" or not order.get("result_path") or not Path(order["result_path"]).exists():
             return
         full = orders.get_user_order(self.ctx.db, chat_id, order["id"]) or order
-        caption = f"<b>{esc(full.get('title', ''))}</b>\nГотово. {BRAND}"
+        caption = f"✨ <b>{esc(full.get('title', ''))}</b>\nГотово! {BRAND}"
         if order.get("is_stub"):
-            caption += "\n\nТЕСТОВЫЙ РЕЖИМ: это не настоящая AI-генерация, API ещё не подключено."
+            caption += "\n\n⚠️ Демо-режим: это не настоящая AI-генерация, API ещё не подключено."
         file = FSInputFile(order["result_path"])
         mime = order.get("result_mime") or ""
         if mime == "image/gif":
@@ -479,7 +546,7 @@ class BotNotifier:
         else:
             await self.bot.send_photo(chat_id, file, caption=caption)
         if with_menu:
-            await self.bot.send_message(chat_id, "Что дальше?", reply_markup=main_menu(self.ctx))
+            await self.bot.send_message(chat_id, "Что создадим дальше? 🪄", reply_markup=main_menu(self.ctx))
 
 
 def build_bot(ctx: AppContext) -> tuple[Bot, Dispatcher]:
@@ -516,12 +583,12 @@ async def setup_bot_profile(bot: Bot, ctx: AppContext) -> None:
     await step("описание", description())
     await step("короткое описание", short())
     await step("команды", bot.set_my_commands([
-        BotCommand(command="start", description="Главное меню"),
-        BotCommand(command="menu", description="Открыть меню"),
-        BotCommand(command="create", description="Создать фото, видео или аудио"),
-        BotCommand(command="profile", description="Профиль и баланс"),
-        BotCommand(command="history", description="История генераций"),
-        BotCommand(command="settings", description="Настройки"),
+        BotCommand(command="start", description="🏠 Главное меню"),
+        BotCommand(command="menu", description="✨ Каталог и приложение"),
+        BotCommand(command="create", description="🪄 Создать"),
+        BotCommand(command="profile", description="👤 Профиль"),
+        BotCommand(command="history", description="🕘 Мои работы"),
+        BotCommand(command="settings", description="⚙️ Настройки"),
     ]))
     if ctx.settings.webapp_url:
         await step("кнопка меню", bot.set_chat_menu_button(
