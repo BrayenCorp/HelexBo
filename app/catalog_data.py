@@ -29,10 +29,14 @@ MARKETING_TAGS = [("products", "ТОВАРЫ"), ("ads", "РЕКЛАМА"), ("soc
 AVATAR_TAGS = [("portrait", "Портрет"), ("fashion", "Мода"), ("travel", "Путешествия"), ("business", "Бизнес"), ("lifestyle", "Образ жизни"),
                ("social", "Социальные сети"), ("ads", "Реклама"), ("cinema", "Кинематографические сцены")]
 
+IDEA_TAGS = [("photo", "ФОТО"), ("video", "ВИДЕО"), ("audio", "АУДИО"), ("portrait", "ПОРТРЕТ"), ("fashion", "МОДА"), ("couples", "ПАРЫ"),
+             ("family", "СЕМЬЯ"), ("kids", "ДЕТИ"), ("lifestyle", "ОБРАЗ ЖИЗНИ"), ("cinema", "КИНО"), ("marketing", "МАРКЕТИНГ"), ("other", "ДРУГОЕ")]
+
 SECTION_TAGS = {
+    "idea": IDEA_TAGS,
     "effect": EFFECT_TAGS, "trend": TREND_TAGS, "photoshoot": PHOTOSHOOT_TAGS, "prompt": PROMPT_TAGS, "marketing": MARKETING_TAGS, "avatar": AVATAR_TAGS,
 }
-SECTIONS = ("effect", "trend", "photoshoot", "prompt", "marketing", "mtool", "avatar")
+SECTIONS = ("idea", "effect", "trend", "photoshoot", "prompt", "marketing", "mtool", "avatar")
 
 # Материалы, которые нужны инструменту (код → подпись).
 MATERIALS = {

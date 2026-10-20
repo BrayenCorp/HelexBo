@@ -10,7 +10,7 @@ import { ExportButton } from "./parts";
 import { DataTable, Pager } from "./table";
 import type { Col } from "./table";
 
-interface UserRow { tg_id: number; name: string; username: string | null; created_at: string; last_seen_at: string | null; tariff: string; balance: number; spent_stars: number; spent_credits: number; generations: number; photos: number; videos: number; source_label: string; status: string }
+interface UserRow { tg_id: number; name: string; username: string | null; created_at: string; last_seen_at: string | null; tariff: string; balance: number; spent_stars: number; spent_credits: number; generations: number; photos: number; videos: number; audios: number; via_bot: number; source_label: string; status: string }
 interface UserPage { items: UserRow[]; total: number; page: number; size: number }
 
 const FILTERS: [string, string][] = [["all", "Все"], ["new", "Новые"], ["active", "Активные"], ["inactive", "Неактивные"], ["pro", "PRO"], ["free", "Бесплатные"], ["paying", "Платящие"], ["nonpaying", "Неплатящие"], ["top_active", "Самые активные"], ["top_spenders", "Самые дорогие"], ["blocked", "Заблокированные"]];
@@ -36,6 +36,8 @@ export function UsersList() {
     { key: "generations", title: "Генераций", num: true, render: (u) => nf(u.generations) },
     { key: "photos", title: "Фото", num: true, render: (u) => nf(u.photos) },
     { key: "videos", title: "Видео", num: true, render: (u) => nf(u.videos) },
+    { key: "audios", title: "Аудио", num: true, render: (u) => nf(u.audios) },
+    { key: "via_bot", title: "Через бота", num: true, render: (u) => nf(u.via_bot) },
     { key: "source_label", title: "Источник" },
     { key: "status", title: "Статус", render: (u) => <span className={`status ${u.status === "blocked" ? "failed" : ""}`}>{u.status === "blocked" ? "Заблокирован" : "Активен"}</span> },
   ];

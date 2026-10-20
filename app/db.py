@@ -459,11 +459,13 @@ def _migrate(conn: sqlite3.Connection) -> None:
     add("categories", "description", "TEXT NOT NULL DEFAULT ''")
     add("packages", "badge", "TEXT NOT NULL DEFAULT ''")
     # --- платформа: разделы каталога, аудио, аватары, интеграции ---
-    add("templates", "section", "TEXT NOT NULL DEFAULT 'legacy'")  # legacy | effect | trend | photoshoot | prompt | marketing | avatar
+    add("templates", "section", "TEXT NOT NULL DEFAULT 'legacy'")  # legacy | idea | effect | trend | photoshoot | prompt | marketing | avatar
     add("templates", "tag", "TEXT NOT NULL DEFAULT ''")  # категория внутри раздела
     add("templates", "tool", "TEXT NOT NULL DEFAULT ''")  # особый инструмент: storyboard | angles | tryon | ...
     add("templates", "required", "TEXT NOT NULL DEFAULT '[]'")  # какие материалы нужны (photo, photo2, text, ...)
     add("templates", "supported_models", "TEXT NOT NULL DEFAULT '[]'")
+    add("templates", "on_home", "INTEGER NOT NULL DEFAULT 1")   # показывать на главной
+    add("templates", "on_ideas", "INTEGER NOT NULL DEFAULT 1")  # показывать в разделе «Идеи»
     add("ai_models", "slug", "TEXT NOT NULL DEFAULT ''")
     add("ai_models", "tags", "TEXT NOT NULL DEFAULT '[]'")  # категории моделей: photoreal, art, edit, fast, hq, new, t2v ...
     add("orders", "input2_path", "TEXT")  # второе изображение: референс, одежда

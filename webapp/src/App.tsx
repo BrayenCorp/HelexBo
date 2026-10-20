@@ -9,6 +9,7 @@ import { Balance, Payments } from "./pages/Balance";
 import { Catalog, EFFECTS_CFG, Marketing, Prompts, SHOOTS_CFG, TRENDS_CFG } from "./pages/Catalog";
 import { History } from "./pages/History";
 import { Home } from "./pages/Home";
+import { Ideas } from "./pages/Ideas";
 import { Integrations } from "./pages/Integrations";
 import { Models } from "./pages/Models";
 import { OrderView } from "./pages/OrderView";
@@ -23,6 +24,7 @@ type NavItem = { id: string; label: string; icon: IconName; to: Route; match: Ro
 const MAIN: NavItem[] = [
   { id: "home", label: "Главная", icon: "home", to: { name: "home" }, match: ["home"] },
   { id: "create", label: "Создать", icon: "sparkle", to: { name: "create" }, match: ["create"] },
+  { id: "ideas", label: "Идеи", icon: "bolt", to: { name: "ideas" }, match: ["ideas"] },
   { id: "models", label: "Модели", icon: "layers", to: { name: "models" }, match: ["models"] },
   { id: "effects", label: "Эффекты", icon: "wand", to: { name: "effects" }, match: ["effects", "tool"] },
   { id: "trends", label: "Тренды", icon: "flame", to: { name: "trends" }, match: ["trends"] },
@@ -30,7 +32,7 @@ const MAIN: NavItem[] = [
   { id: "avatars", label: "Аватары", icon: "user", to: { name: "avatars" }, match: ["avatars"] },
   { id: "prompts", label: "Промпты", icon: "edit", to: { name: "prompts" }, match: ["prompts"] },
   { id: "marketing", label: "Маркетинг", icon: "megaphone", to: { name: "marketing" }, match: ["marketing"] },
-  { id: "history", label: "История", icon: "clock", to: { name: "history" }, match: ["history", "order"] },
+  { id: "history", label: "Мои генерации", icon: "clock", to: { name: "history" }, match: ["history", "order"] },
 ];
 const MORE: NavItem[] = [
   { id: "balance", label: "Баланс", icon: "coin", to: { name: "balance" }, match: ["balance", "payments"] },
@@ -129,6 +131,7 @@ export default function App() {
       <div className="pf">
         <aside className="pf-side" aria-label="Разделы">
           <Logo />
+          <button className="btn orange block side-create" onClick={() => setQuick(true)}><Icon name="plus" size={17} />Создать</button>
           {MAIN.map((it) => <button key={it.id} className={`pf-nav ${active(it) ? "on" : ""}`} onClick={() => nav.reset(it.to)}><Icon name={it.icon} size={19} />{it.label}</button>)}
           <div className="pf-nav-sep" />
           {MORE.map((it) => <button key={it.id} className={`pf-nav ${active(it) ? "on" : ""}`} onClick={() => nav.reset(it.to)}><Icon name={it.icon} size={19} />{it.label}</button>)}
@@ -143,6 +146,7 @@ export default function App() {
           <main className="pf-page" key={pageKey}>
             {me.status === "blocked" && <div className="notice bad"><p>Ваш аккаунт заблокирован: создание новых работ недоступно. Обратитесь в поддержку.</p></div>}
             {route.name === "home" && <Home />}
+            {route.name === "ideas" && <Ideas />}
             {route.name === "create" && <Studio init={route} />}
             {route.name === "tool" && <Studio init={{ name: "create", slug: route.slug, refOrderId: route.refOrderId }} />}
             {route.name === "models" && <Models kind={route.kind} />}
@@ -163,13 +167,18 @@ export default function App() {
           </main>
         </div>
 
-        <nav className="pf-bottom" aria-label="Разделы">
-          {bottom("home", "Главная", "home", { name: "home" }, ["home"])}
-          {bottom("history", "История", "clock", { name: "history" }, ["history", "order"])}
-          <span className="fab-slot"><button className="fab" onClick={() => setQuick(true)} aria-label="Создать"><Icon name="plus" size={26} /></button></span>
-          {bottom("profile", "Профиль", "user", { name: "profile" }, ["profile", "settings", "security", "balance", "payments", "integrations"])}
-          <button className={["create", "tool", "models", "effects", "trends", "photoshoots", "avatars", "prompts", "marketing"].includes(route.name) ? "on" : ""} onClick={() => setMenu(true)}><Icon name="menu" size={22} /><span>Ещё</span></button>
-        </nav>
+        <div className="pf-dock">
+          <div className="pf-action">
+            <button className="btn orange block" onClick={() => setQuick(true)}><Icon name="plus" size={18} />Создать</button>
+          </div>
+          <nav className="pf-bottom" aria-label="Разделы">
+            {bottom("home", "Главная", "home", { name: "home" }, ["home"])}
+            {bottom("ideas", "Идеи", "bolt", { name: "ideas" }, ["ideas", "trends", "photoshoots", "effects", "marketing", "prompts"])}
+            {bottom("history", "Генерации", "clock", { name: "history" }, ["history", "order"])}
+            {bottom("profile", "Профиль", "user", { name: "profile" }, ["profile", "settings", "security", "balance", "payments", "integrations"])}
+            <button className={["create", "tool", "models", "avatars"].includes(route.name) ? "on" : ""} onClick={() => setMenu(true)}><Icon name="menu" size={22} /><span>Ещё</span></button>
+          </nav>
+        </div>
 
         {quick && (
           <Sheet title="Что создаём?" onClose={() => setQuick(false)}>

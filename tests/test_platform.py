@@ -563,3 +563,67 @@ class PreviewPhotosTest(BaseTest):
             previews.delete(self.storage, "../../secret.jpg")
         previews.delete(self.storage, a["name"])
         self.assertEqual(len(previews.list_public(self.storage)), 1)
+
+
+class ShowcaseTest(BaseTest):
+    """Витрина: админ наполняет «Идеи» и главную, меняет порядок и видимость."""
+
+    def card(self, **kw):
+        from app.services import templates
+        base = {"title": "Идея", "kind": "photo", "section": "idea", "tag": "portrait", "price_credits": 12, "is_published": True}
+        base.update(kw)
+        return templates.create(self.db, base)
+
+    def test_ideas_flags_order_and_featured(self):
+        from app.services import templates
+        a = self.card(title="Первая", sort_order=20)
+        b = self.card(title="Вторая", sort_order=10)
+        c = self.card(title="Рекомендованная", sort_order=30, is_popular=True)
+        self.assertEqual([i["title"] for i in catalog.list_items(self.db, "idea")], ["Рекомендованная", "Вторая", "Первая"])
+        self.assertTrue(catalog.list_items(self.db, "idea")[0]["featured"])
+        templates.update(self.db, c["id"], {"on_ideas": False})
+        self.assertEqual([i["title"] for i in catalog.list_items(self.db, "idea", on_ideas=True)], ["Вторая", "Первая"])
+        templates.update(self.db, b["id"], {"on_home": False})
+        self.assertEqual([i["title"] for i in catalog.list_items(self.db, "idea", on_home=True)], ["Рекомендованная", "Первая"])
+        templates.update(self.db, a["id"], {"is_published": False})
+        self.assertNotIn("Первая", [i["title"] for i in catalog.list_items(self.db, "idea")])
+
+    def test_move_and_duplicate(self):
+        from app.services import templates
+        a = self.card(title="А", sort_order=10)
+        b = self.card(title="Б", sort_order=20)
+        self.assertEqual(templates.move(self.db, b["id"], "down"), {"moved": False})
+        self.assertEqual(templates.move(self.db, b["id"], "up"), {"moved": True})
+        self.assertEqual([i["title"] for i in catalog.list_items(self.db, "idea")], ["Б", "А"])
+        copy = templates.duplicate(self.db, a["id"])
+        self.assertEqual(copy["title"], "А (копия)")
+        self.assertEqual((copy["is_published"], copy["section"], copy["tag"]), (0, "idea", "portrait"))
+        self.assertNotEqual(copy["slug"], a["slug"])
+        self.assertNotIn("А (копия)", [i["title"] for i in catalog.list_items(self.db, "idea")])  # копия скрыта
+        with self.assertRaises(DomainError):
+            templates.move(self.db, a["id"], "вбок")
+
+    def test_idea_card_can_be_generated(self):
+        self.add_balance(1, 100)
+        t = self.card(title="Ночь", prompt="night city portrait")
+        o, _ = make(self, "i1", template_id=t["id"])
+        self.assertEqual(run(self, o)["status"], "done")
+
+
+class BotSyncTest(BaseTest):
+    """Бот и приложение — одна система: общий пользователь, общая история, общая статистика."""
+
+    def test_bot_orders_counted_separately_and_together(self):
+        from datetime import date, timedelta
+        from app.services import admin_users
+        self.add_balance(1, 300)
+        a, _ = orders.submit_generation(self.db, self.storage, user_id=1, request_id="b1", source="bot", kind="photo", prompt="кот")
+        run(self, a)
+        b, _ = orders.submit_generation(self.db, self.storage, user_id=1, request_id="a1", source="app", kind="audio", prompt="текст")
+        run(self, b)
+        st = analytics.bot_stats(self.db, date.today() - timedelta(days=1), date.today())
+        self.assertEqual((st["generations_total"], st["photo"], st["audio"]), (1, 1, 0))
+        self.assertEqual(st["app"]["generations_period"], 1)
+        row = admin_users.users_list(self.db)["items"][0]
+        self.assertEqual((row["generations"], row["photos"], row["audios"], row["via_bot"]), (2, 1, 1, 1))
+        self.assertEqual(len(orders.list_user_orders(self.db, 1)), 2)  # обе работы в «Моих генерациях»

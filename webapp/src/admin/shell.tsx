@@ -24,6 +24,7 @@ export const ITEMS: Item[] = [
   { page: "users", title: "Пользователи", icon: "users", roles: ["owner"] },
   { page: "activity", title: "Активность пользователей", icon: "clock", roles: ["owner"], period: true },
   { page: "generations", title: "Генерации", icon: "sparkle", roles: ["owner", "developer"] },
+  { page: "showcase", title: "Витрина", icon: "stack", roles: ["owner"] },
   { page: "content", title: "Контент", icon: "layers", roles: ["owner"] },
   { page: "categories", title: "Категории", icon: "grid", roles: ["owner"] },
   { page: "templates", title: "Шаблоны", icon: "image", roles: ["owner"] },
@@ -39,7 +40,7 @@ export const ITEMS: Item[] = [
   { page: "system", title: "Система", icon: "shield", roles: ["owner", "developer"] },
   { page: "settings", title: "Настройки", icon: "settings", roles: ["owner"] },
 ];
-const PARENT: Record<string, string> = { user: "users", template: "templates", category: "categories", package: "tokens" };
+const PARENT: Record<string, string> = { user: "users", template: "templates", category: "categories", package: "tokens", "showcase-new": "showcase" };
 
 export function PeriodBar() {
   const { period, setPeriod } = usePeriod();

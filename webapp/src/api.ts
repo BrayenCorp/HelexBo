@@ -96,6 +96,12 @@ export const api = {
   deleteMyMedia: () => json<{ deleted_files: number }>("/api/me/media", { method: "DELETE" }),
   meta: () => json<PlatformMeta>("/api/platform/meta"),
   previews: () => json<string[]>("/api/previews"),
+  ideas: (tag?: string, q?: string) => {
+    const p = new URLSearchParams();
+    if (tag) p.set("tag", tag);
+    if (q) p.set("q", q);
+    return json<CatalogItem[]>(`/api/ideas?${p}`);
+  },
   platformHome: () => json<PlatformHome>("/api/platform/home"),
   catalog: (section: string, p: { tag?: string; q?: string; popular?: boolean } = {}) => {
     const q = new URLSearchParams();

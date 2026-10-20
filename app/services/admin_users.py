@@ -14,6 +14,8 @@ GENS = "(SELECT COUNT(*) FROM orders o WHERE o.user_id = u.tg_id AND o.status = 
 G_ALL = GENS % ""
 G_PHOTO = GENS % " AND o.kind = 'photo'"
 G_VIDEO = GENS % " AND o.kind = 'video'"
+G_AUDIO = GENS % " AND o.kind = 'audio'"
+VIA_BOT = "(SELECT COUNT(*) FROM orders o WHERE o.user_id = u.tg_id AND o.source = 'bot')"
 
 
 def display_name(u: dict) -> str:
@@ -62,7 +64,7 @@ def users_list(db: Database, *, q: str = "", flt: str = "all", page: int = 1, si
         "SELECT u.tg_id, u.username, u.first_name, u.last_name, u.created_at, u.last_seen_at, u.is_pro, u.balance, u.source, u.campaign, u.status, "
         f"{SPENT} AS spent_stars, "
         "(SELECT COALESCE(-SUM(l.delta),0) FROM credit_ledger l WHERE l.user_id = u.tg_id AND l.reason = 'order_charge') AS spent_credits, "
-        f"{G_ALL} AS generations, {G_PHOTO} AS photos, {G_VIDEO} AS videos "
+        f"{G_ALL} AS generations, {G_PHOTO} AS photos, {G_VIDEO} AS videos, {G_AUDIO} AS audios, {VIA_BOT} AS via_bot "
         f"FROM users u WHERE {cond} ORDER BY {order} LIMIT ? OFFSET ?"
     )
     with db.read() as c:

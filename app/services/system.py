@@ -35,7 +35,17 @@ async def health(ctx) -> list[dict]:
             c.execute("SELECT 1").fetchone()
             users = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         size = os.path.getsize(db.path) / 1024 / 1024 if os.path.exists(db.path) else 0
-        out.append({"code": "db", "title": "База данных", "status": OK, "detail": f"Работает. Пользователей: {users}, размер файла: {size:.1f} МБ."})
+        with db.read() as c:
+            gens = c.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+            via_bot = c.execute("SELECT COUNT(*) FROM orders WHERE source = 'bot'").fetchone()[0]
+        out.append({"code": "db", "title": "База данных", "status": OK,
+                    "detail": f"Работает. Пользователей: {users}, генераций: {gens} (из них через бота: {via_bot}), размер файла: {size:.1f} МБ. Файл: {db.path}"})
+        # На Railway база живёт только на подключённом томе: без него данные стираются при каждом деплое.
+        volatile = not str(db.path).startswith("/data") and bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID"))
+        if volatile:
+            out.append({"code": "storage", "title": "Хранилище", "status": ERROR,
+                        "detail": "База лежит не на постоянном томе: при каждом деплое пользователи и генерации будут исчезать. "
+                                  "Подключите Volume и задайте DATA_DIR=/data."})
     except Exception as e:  # noqa: BLE001
         out.append({"code": "db", "title": "База данных", "status": ERROR, "detail": f"Ошибка: {type(e).__name__}"})
 

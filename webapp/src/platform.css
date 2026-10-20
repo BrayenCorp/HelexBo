@@ -33,13 +33,17 @@
 .pf-search-btn kbd { display: none; font: inherit; font-size: 11px; border: 1px solid var(--line2); border-radius: 5px; padding: 1px 6px; }
 .pf-search-btn span { display: none; }
 .pf-page { padding: 20px 16px 32px; max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; animation: pagein 0.2s ease both; }
-.pf-bottom { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--bg); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+.pf-dock { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; background: var(--bg); border-top: 1px solid var(--line2); }
+.pf-action { padding: 10px 16px 6px; }
+.pf-action .btn { padding: 13px; font-size: 16px; }
+.pf-bottom { display: grid; grid-template-columns: repeat(5, 1fr); padding: 2px 4px calc(6px + env(safe-area-inset-bottom)); }
 .pf-bottom button { border: 0; background: none; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; font-size: 11px; font-weight: 600; }
 .pf-bottom button.on { color: var(--ink); }
 .pf-bottom .cta { color: #000; }
 .pf-bottom .cta i { display: grid; place-items: center; width: 44px; height: 30px; background: var(--accent); border-radius: 10px; font-style: normal; }
 
 @media (min-width: 900px) {
+  .pf-dock { display: none; }
   .pf { display: grid; grid-template-columns: 252px 1fr; }
   .pf-side { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; padding: 20px 14px; border-right: 1px solid var(--line); overflow-y: auto; }
   .pf-side .logo { padding: 4px 10px 18px; }
@@ -48,7 +52,6 @@
   .pf-nav:hover { color: var(--ink); background: var(--raise); }
   .pf-nav.on { color: var(--on-accent); background: var(--accent); }
   .pf-nav-sep { height: 1px; background: var(--line); margin: 10px 0; }
-  .pf-bottom { display: none; }
   .pf-main { padding-bottom: 40px; }
   .pf-top .logo { display: none; }
   .pf-search-btn { min-width: 320px; }
@@ -256,14 +259,11 @@ button.row-card:hover { border-color: var(--accent); }
 .pf { height: 100dvh; min-height: 0; }
 .pf-main { height: 100dvh; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding-bottom: 0; }
 .pf-top { flex: none; }
-.pf-page { flex: 1 1 auto; min-height: 0; max-width: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.pf-page { flex: 1 1 auto; min-height: 0; max-width: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
 @media (min-width: 900px) { .pf-page { padding-bottom: 48px; } }
 
 /* Нижнее меню с круглой кнопкой «+» по центру */
-.pf-bottom { grid-template-columns: 1fr 1fr 72px 1fr 1fr; align-items: end; }
-.fab-slot { display: grid; place-items: center; }
-.pf-bottom .fab { width: 56px; height: 56px; margin-top: -26px; border: 0; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 0 0 5px var(--bg), 0 6px 18px rgba(255, 106, 0, 0.35); transition: transform 0.15s; }
-.pf-bottom .fab:active { transform: scale(0.94); }
+
 .quick-pick { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
 .quick-pick button { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 1px solid var(--line2); background: transparent; color: var(--ink); border-radius: 14px; padding: 14px; }
 .quick-pick button:hover { border-color: var(--accent); }
@@ -272,8 +272,8 @@ button.row-card:hover { border-color: var(--accent); }
 
 /* ---------- Телефон: компактнее, первый экран без прокрутки ---------- */
 @media (max-width: 899px) {
-  .pf-page { padding: 14px 16px 0; gap: 18px; }
-  .pf-page > :last-child { margin-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .pf-page { padding: 14px 16px calc(150px + env(safe-area-inset-bottom)); gap: 18px; }
+
   .pf-h1 { font-size: 25px; }
   .pf-lead { font-size: 14px; }
   .hero-pf { gap: 8px; padding: 0; }
@@ -304,8 +304,8 @@ button.row-card:hover { border-color: var(--accent); }
 
 /* Телефон: «Стоимость + Создать» всегда на виду, над нижним меню */
 @media (max-width: 899px) {
-  .editor { margin-bottom: 150px; }
-  .editor .stick { position: fixed; left: 0; right: 0; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 25; border: 0; border-top: 1px solid var(--line2); border-radius: 0; padding: 10px 16px 12px; gap: 8px; background: var(--card); box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.55); }
+  .editor { margin-bottom: 40px; }
+  .editor .stick { position: static; z-index: 25; border: 0; border-top: 1px solid var(--line2); border-radius: 0; padding: 10px 16px 12px; gap: 8px; background: var(--card); box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.55); }
   .editor .stick .hint { display: none; }
   .editor .stick .btn.big { padding: 13px; font-size: 16px; }
   .editor .stick .notice { padding: 8px 10px; font-size: 12.5px; }
@@ -341,3 +341,44 @@ button.row-card:hover { border-color: var(--accent); }
 @media (max-width: 420px) { .pf-seg.wide3 button { font-size: 11px; letter-spacing: 0.02em; gap: 5px; } }
 .select-wrap { display: block; min-width: 170px; }
 .toolbar .select-wrap { flex: 1; min-width: 160px; }
+
+/* Главная: крупные аккуратные кнопки действий */
+.act-grid-home { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 700px) { .act-grid-home { grid-template-columns: 1fr 1fr; } }
+.act-big { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 1px solid var(--line2); background: var(--card); color: var(--ink); border-radius: 14px; padding: 15px 16px; transition: border-color 0.15s, transform 0.1s; }
+.act-big:hover { border-color: var(--accent); }
+.act-big:active { transform: scale(0.995); }
+.act-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line2); display: grid; place-items: center; color: var(--accent); }
+.act-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.act-txt b { font-size: 15.5px; }
+.act-txt span { color: var(--muted); font-size: 13px; }
+.side-create { margin: 0 10px 14px; justify-content: center; }
+
+/* Идеи: витрина с превью, описанием и кнопкой «Попробовать» */
+.idea-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 700px) { .idea-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1150px) { .idea-grid { grid-template-columns: repeat(3, 1fr); } }
+.idea { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--card); border-radius: 16px; overflow: hidden; }
+.idea .tile-media { aspect-ratio: 9 / 16; max-height: 320px; }
+.idea .tile-media.wd { aspect-ratio: 16 / 9; }
+.idea-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.idea-body b { font-size: 16px; }
+.idea-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.idea-text { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.idea-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+/* Мои генерации: строка + ряд действий */
+.gcard { border: 1px solid var(--line); background: var(--card); border-radius: 14px; overflow: hidden; }
+.gcard .hrow { border: 0; background: none; border-radius: 0; }
+.hacts { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 8px; }
+.hacts button { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line2); background: transparent; color: var(--muted); border-radius: 9px; padding: 6px 9px; font-size: 12px; font-weight: 600; }
+.hacts button:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
+.hacts button.on { color: var(--accent); border-color: var(--line3); }
+.hacts button:disabled { opacity: 0.5; }
+.hrow .grow span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Витрина в админке */
+.sc-row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.sc-thumb { flex: none; width: 46px; height: 62px; border-radius: 8px; overflow: hidden; background: var(--soft); display: grid; place-items: center; color: var(--muted); }
+.sc-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.sc-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.sc-acts { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+.sc-acts .rot { transform: rotate(180deg); }

@@ -294,6 +294,7 @@ export interface CatalogItem {
   preview_url: string;
   preview_kind: "image" | "video";
   is_popular: boolean;
+  featured: boolean;
   uses: number;
   slug: string;
   prompt?: string;
@@ -310,6 +311,7 @@ export interface PlatformMeta {
 
 export interface PlatformHome {
   popular: CatalogItem[];
+  ideas: CatalogItem[];
   trends: CatalogItem[];
   photoshoots: CatalogItem[];
   recent: Order[];
@@ -347,6 +349,7 @@ export type Route =
   | { name: "models"; kind?: Kind }
   | { name: "effects"; tag?: string }
   | { name: "tool"; slug: string; refOrderId?: number }
+  | { name: "ideas" }
   | { name: "trends" }
   | { name: "photoshoots"; tag?: string }
   | { name: "avatars" }

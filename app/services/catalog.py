@@ -11,6 +11,7 @@ from ..errors import DomainError
 from .templates import media_kind
 
 SECTION_LABELS = {
+    "idea": "Идеи",
     "effect": "Эффекты", "trend": "Тренды", "photoshoot": "Фотосессии", "prompt": "Промпты", "marketing": "Маркетинг", "mtool": "Маркетинг",
     "avatar": "Аватары",
 }
@@ -37,7 +38,7 @@ def public(t: dict, uses: int = 0) -> dict:
         "required": [{"code": c, "label": cd.MATERIALS.get(c, c)} for c in _loads(t["required"], []) if c != "avatar"],
         "needs_avatar": "avatar" in _loads(t["required"], []),
         "preview_url": t["preview_url"], "preview_kind": media_kind(t["preview_url"]) if t["preview_url"] else "image",
-        "is_popular": bool(t["is_popular"]), "uses": uses, "slug": t["slug"],
+        "is_popular": bool(t["is_popular"]), "featured": bool(t["is_popular"]), "uses": uses, "slug": t["slug"],
     }
     if t["section"] == "prompt":
         out["prompt"] = t["prompt"]
@@ -63,7 +64,8 @@ def _uses(db: Database) -> dict[int, int]:
         return {r[0]: r[1] for r in c.execute("SELECT template_id, COUNT(*) FROM orders WHERE status != 'failed' GROUP BY template_id")}
 
 
-def list_items(db: Database, section: str, tag: str | None = None, q: str | None = None, popular: bool = False, limit: int | None = None) -> list[dict]:
+def list_items(db: Database, section: str, tag: str | None = None, q: str | None = None, popular: bool = False, limit: int | None = None,
+               on_home: bool = False, on_ideas: bool = False) -> list[dict]:
     if section not in cd.SECTIONS:
         raise DomainError("Неизвестный раздел", code="not_found", status=404)
     sql, args = "SELECT * FROM templates WHERE is_published = 1 AND is_system = 0 AND section = ?", [section]
@@ -71,7 +73,11 @@ def list_items(db: Database, section: str, tag: str | None = None, q: str | None
         sql += " AND tag = ?"; args.append(tag)
     if popular or tag == "popular":
         sql += " AND is_popular = 1"
-    sql += " ORDER BY sort_order, id"
+    if on_home:
+        sql += " AND on_home = 1"
+    if on_ideas:
+        sql += " AND on_ideas = 1"
+    sql += " ORDER BY is_popular DESC, sort_order, id"  # «Рекомендуем» — выше остальных
     with db.read() as conn:
         rows = [dict(r) for r in conn.execute(sql, args).fetchall()]
     if q:

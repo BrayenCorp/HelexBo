@@ -64,6 +64,10 @@ class FrameIn(BaseModel):
     request_id: str
 
 
+class MoveIn(BaseModel):
+    direction: str
+
+
 class TokenIn(BaseModel):
     label: str = ""
 
@@ -215,12 +219,23 @@ def create_app(ctx: AppContext) -> FastAPI:
 
     @app.get("/api/platform/home")
     async def platform_home(user: dict = Depends(current_user)):
-        popular = []
-        for sec in ("effect", "trend", "photoshoot", "marketing"):
-            popular += catalog.list_items(ctx.db, sec, popular=True, limit=3)
+        ideas = catalog.list_items(ctx.db, "idea", on_home=True, limit=10)
+        popular = list(ideas)
+        if len(popular) < 6:  # пока витрина не заполнена — показываем популярное из каталога
+            for sec in ("effect", "trend", "photoshoot", "marketing"):
+                popular += catalog.list_items(ctx.db, sec, popular=True, limit=3)
         recent = [orders.public_order(o) for o in orders.list_user_orders(ctx.db, user["id"], 8)]
-        return {"popular": popular[:10], "trends": catalog.list_items(ctx.db, "trend", limit=8), "photoshoots": catalog.list_items(ctx.db, "photoshoot", limit=8),
-                "recent": recent, "demo": s.ai_mode == "mock"}
+        return {"popular": popular[:10], "ideas": ideas, "trends": catalog.list_items(ctx.db, "trend", limit=8),
+                "photoshoots": catalog.list_items(ctx.db, "photoshoot", limit=8), "recent": recent, "demo": s.ai_mode == "mock"}
+
+    @app.get("/api/ideas")
+    async def ideas(tag: str | None = None, q: str | None = None, _: dict = Depends(current_user)):
+        """Витрина «Идеи»: карточки, которые владелец добавил в админке.
+        Пока витрина пустая, показываем тренды и фотосессии, чтобы раздел не был пустым."""
+        items = catalog.list_items(ctx.db, "idea", tag, q, on_ideas=True)
+        if items or (tag and tag != "all"):
+            return items
+        return catalog.list_items(ctx.db, "trend", q=q, limit=12) + catalog.list_items(ctx.db, "photoshoot", q=q, limit=12)
 
     @app.get("/api/catalog/{section}")
     async def catalog_list(section: str, tag: str | None = None, q: str | None = None, popular: bool = False, _: dict = Depends(current_user)):
@@ -726,6 +741,19 @@ def create_app(ctx: AppContext) -> FastAPI:
     @app.put(f"{A}/freeform/{{kind}}")
     async def a_freeform_update(kind: str, body: dict, _: dict = Depends(owner)):
         return templates.update_system(ctx.db, kind, body)
+
+    @app.post(f"{A}/templates/{{template_id}}/duplicate")
+    async def a_template_duplicate(template_id: int, _: dict = Depends(owner)):
+        return templates.duplicate(ctx.db, template_id)
+
+    @app.post(f"{A}/templates/{{template_id}}/move")
+    async def a_template_move(template_id: int, body: MoveIn, _: dict = Depends(owner)):
+        return templates.move(ctx.db, template_id, body.direction)
+
+    @app.get(f"{A}/bot-stats")
+    async def a_bot_stats(period_: str = Query("30d", alias="period"), start: str | None = None, end: str | None = None, _: dict = Depends(owner)):
+        a, b = period(period_, start, end)
+        return analytics.bot_stats(ctx.db, a, b)
 
     @app.get(f"{A}/previews")
     async def a_previews(_: dict = Depends(owner)):

@@ -1,10 +1,16 @@
 import { api } from "../api";
 import { useApp } from "../ctx";
-import { nf, usd } from "../format";
+import { fmtTime, nf, usd } from "../format";
 import { ErrorBox, Loading, useLoad } from "../ui";
 import { BarChart, LineChart, palette } from "./charts";
 import { ActivityFeed, ChartCard, Kpi } from "./parts";
 import type { ActivityItem, Overview, SeriesData } from "./parts";
+
+interface BotStats {
+  users_total: number; users_period: number; started: number; started_period: number; generations_period: number; generations_total: number;
+  photo: number; video: number; audio: number; errors_period: number; last_activity: string | null;
+  app: { users_total: number; generations_period: number };
+}
 import { pq, usePeriod } from "./shell";
 
 /** Главная админки: состояние всего Nolla AI за выбранный период. Все числа — из базы. */
@@ -15,6 +21,7 @@ export function Dashboard() {
   const ov = useLoad(() => api.admin.get<Overview>(`analytics/overview?${q}`), [q]);
   const ser = useLoad(() => api.admin.get<SeriesData>(`analytics/series?${q}`), [q]);
   const act = useLoad(() => api.admin.get<ActivityItem[]>("activity?limit=15"), []);
+  const bot = useLoad(() => api.admin.get<BotStats>(`bot-stats?${q}`), [q]);
   if ((ov.loading && !ov.data) || (ser.loading && !ser.data)) return <Loading />;
   if (ov.error || !ov.data) return <ErrorBox message={ov.error ?? "Ошибка"} onRetry={ov.reload} />;
   const o = ov.data, s = ser.data;
@@ -36,6 +43,16 @@ export function Dashboard() {
           <ChartCard title="Покупки и средний чек"><LineChart days={s.days} series={[{ name: "Покупок", color: palette.black, values: s.purchases }, { name: "Средний чек, Stars", color: palette.orange, values: s.avg_check }]} /></ChartCard>
           <ChartCard title="Генерации"><LineChart days={s.days} series={[{ name: "Фото", color: palette.orange, values: s.photo }, { name: "Видео", color: palette.black, values: s.video }, { name: "Всего", color: palette.gray, values: s.generations }]} /></ChartCard>
           <ChartCard title="Токены"><LineChart days={s.days} series={[{ name: "Куплено", color: palette.orange, values: s.tokens_bought }, { name: "Потрачено", color: palette.black, values: s.tokens_spent }, { name: "Возвращено", color: palette.soft, values: s.tokens_refunded }]} /></ChartCard>
+        </div>
+      )}
+      {bot.data && (
+        <div className="kpi-groups">
+          <Kpi title="Бот" big={nf(bot.data.users_total)} bigLabel="Пользователей создавали через бота" orange
+            rows={[["Запускали бота", nf(bot.data.started)], ["Активны за период", nf(bot.data.users_period)], ["Последняя активность", bot.data.last_activity ? fmtTime(bot.data.last_activity) : "Нет данных"]]} />
+          <Kpi title="Генерации через бота" big={nf(bot.data.generations_total)} bigLabel="Всего через бота"
+            rows={[["За период", nf(bot.data.generations_period)], ["Фото", nf(bot.data.photo)], ["Видео", nf(bot.data.video)], ["Аудио", nf(bot.data.audio)], ["Ошибок за период", nf(bot.data.errors_period)]]} />
+          <Kpi title="Через приложение" big={nf(bot.data.app.users_total)} bigLabel="Пользователей создавали в приложении"
+            rows={[["Генераций за период", nf(bot.data.app.generations_period)]]} />
         </div>
       )}
       <div className="card">

@@ -1,6 +1,7 @@
 import { Analytics } from "./Analytics";
 import { CategoriesList, CategoryEditor, PackageEditor } from "./Catalogue";
 import { ContentAdmin } from "./Content";
+import { ShowcaseEditor, ShowcaseList } from "./Showcase";
 import { Dashboard } from "./Dashboard";
 import { Errors, Providers, SystemPage } from "./Dev";
 import { Activity, Generations, Payments } from "./Lists";
@@ -26,6 +27,8 @@ export function Admin({ page, id }: { page?: string; id?: string }) {
     case "user": body = <UserProfile id={id ?? ""} />; break;
     case "activity": body = <Activity />; break;
     case "generations": body = <Generations />; break;
+    case "showcase": body = <ShowcaseList />; break;
+    case "showcase-new": body = <ShowcaseEditor />; break;
     case "content": body = <ContentAdmin />; break;
     case "categories": body = <CategoriesList />; break;
     case "category": body = <CategoryEditor id={id ?? "new"} />; break;

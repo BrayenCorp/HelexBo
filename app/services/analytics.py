@@ -274,3 +274,29 @@ def revenue_report(db: Database, s: date, e: date, star_rate: float) -> dict:
             "conversion": _pct(payers_all, users_total), "by_product": by_product, "by_method": by_method, "by_tariff": [],
             "note": "Выручка считается в Telegram Stars (реальные платежи, тестовые не входят); пересчёт в USD — приблизительный, по курсу из настроек. "
                     "Выручки по тарифам нет: подписки пока назначаются вручную."}
+
+
+def bot_stats(db: Database, s: date, e: date) -> dict:
+    """Отдельно по боту: пользователи, генерации по типам, ошибки. Всё из той же базы, что и приложение."""
+    S, E = s.isoformat(), e.isoformat()
+    with db.read() as c:
+        one = lambda sql, *a: c.execute(sql, a).fetchone()[0]
+        kinds = {r["kind"]: r["n"] for r in c.execute(
+            "SELECT kind, COUNT(*) AS n FROM orders WHERE source = 'bot' AND substr(created_at,1,10) BETWEEN ? AND ? GROUP BY kind", (S, E))}
+        total_kinds = {r["kind"]: r["n"] for r in c.execute("SELECT kind, COUNT(*) AS n FROM orders WHERE source = 'bot' GROUP BY kind")}
+        return {
+            "users_total": one("SELECT COUNT(DISTINCT user_id) FROM orders WHERE source = 'bot'"),
+            "users_period": one("SELECT COUNT(DISTINCT user_id) FROM orders WHERE source = 'bot' AND substr(created_at,1,10) BETWEEN ? AND ?", S, E),
+            "started": one("SELECT COUNT(DISTINCT user_id) FROM events WHERE name = 'bot_started'"),
+            "started_period": one("SELECT COUNT(DISTINCT user_id) FROM events WHERE name = 'bot_started' AND substr(ts,1,10) BETWEEN ? AND ?", S, E),
+            "generations_period": sum(kinds.values()),
+            "generations_total": sum(total_kinds.values()),
+            "photo": kinds.get("photo", 0), "video": kinds.get("video", 0), "audio": kinds.get("audio", 0),
+            "errors_period": one("SELECT COUNT(*) FROM orders WHERE source = 'bot' AND status = 'failed' AND substr(created_at,1,10) BETWEEN ? AND ?", S, E),
+            "last_activity": one("SELECT MAX(created_at) FROM orders WHERE source = 'bot'") or
+                             one("SELECT MAX(ts) FROM events WHERE name = 'bot_started'"),
+            "app": {
+                "users_total": one("SELECT COUNT(DISTINCT user_id) FROM orders WHERE source = 'app'"),
+                "generations_period": one("SELECT COUNT(*) FROM orders WHERE source = 'app' AND substr(created_at,1,10) BETWEEN ? AND ?", S, E),
+            },
+        }

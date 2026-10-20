@@ -14,7 +14,7 @@ KNOWN_MODELS = ("image-default", "video-default", "audio-default", "seedance-2.5
 EDITABLE = (
     "title", "description", "category", "kind", "model", "prompt", "preview_url",
     "emoji", "price_credits", "is_published", "is_popular", "is_trend", "sort_order", "style_label",
-    "section", "tag", "tool", "required", "supported_models",
+    "section", "tag", "tool", "required", "supported_models", "on_home", "on_ideas",
 )
 MAX_STYLES = 8
 MAX_EXAMPLES = 8
@@ -173,7 +173,7 @@ def _clean(fields: dict, partial: bool) -> dict:
                 val = int(val)
             except (TypeError, ValueError):
                 raise DomainError(f"Поле {key} должно быть числом")
-        if key in ("is_published", "is_popular", "is_trend"):
+        if key in ("is_published", "is_popular", "is_trend", "on_home", "on_ideas"):
             val = 1 if val in (True, 1, "1", "true", "True") else 0
         if key in ("section", "tag", "tool"):
             val = str(val or "").strip()
@@ -316,3 +316,43 @@ def update_system(db: Database, kind: str, fields: dict) -> dict:
         if sets:
             conn.execute(f"UPDATE templates SET {', '.join(sets)}, updated_at = ? WHERE is_system = 1 AND kind = ?", [*args, now(), kind])
     return next(x for x in list_system(db) if x["kind"] == kind)
+
+
+def duplicate(db: Database, template_id: int) -> dict:
+    """Копия карточки — скрытая, чтобы можно было спокойно отредактировать и опубликовать."""
+    with db.tx() as conn:
+        row = conn.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()
+        if row is None:
+            raise DomainError("Шаблон не найден", code="template_not_found", status=404)
+        ts = now()
+        data = {c: v for c, v in dict(row).items() if c not in ("id", "slug", "created_at", "updated_at")}
+        data.update(slug=f"t-{uuid.uuid4().hex[:8]}", created_at=ts, updated_at=ts, is_published=0, title=f"{row['title']} (копия)"[:120])
+        cur = conn.execute(f"INSERT INTO templates ({', '.join(data)}) VALUES ({', '.join('?' * len(data))})", list(data.values()))
+        out = dict(conn.execute("SELECT * FROM templates WHERE id = ?", (cur.lastrowid,)).fetchone())
+        for e in conn.execute("SELECT media_url, sort_order FROM template_examples WHERE template_id = ?", (template_id,)).fetchall():
+            conn.execute("INSERT INTO template_examples (template_id, media_url, sort_order) VALUES (?, ?, ?)", (out["id"], e["media_url"], e["sort_order"]))
+    return out
+
+
+def move(db: Database, template_id: int, direction: str) -> dict:
+    """Поднять или опустить карточку: меняется местами с соседней в том же разделе."""
+    if direction not in ("up", "down"):
+        raise DomainError("Направление: up или down")
+    with db.tx() as conn:
+        cur = conn.execute("SELECT id, section, sort_order FROM templates WHERE id = ?", (template_id,)).fetchone()
+        if cur is None:
+            raise DomainError("Шаблон не найден", code="template_not_found", status=404)
+        if direction == "up":
+            nb = conn.execute("SELECT id, sort_order FROM templates WHERE section = ? AND (sort_order < ? OR (sort_order = ? AND id < ?)) "
+                              "ORDER BY sort_order DESC, id DESC LIMIT 1", (cur["section"], cur["sort_order"], cur["sort_order"], template_id)).fetchone()
+        else:
+            nb = conn.execute("SELECT id, sort_order FROM templates WHERE section = ? AND (sort_order > ? OR (sort_order = ? AND id > ?)) "
+                              "ORDER BY sort_order, id LIMIT 1", (cur["section"], cur["sort_order"], cur["sort_order"], template_id)).fetchone()
+        if nb is None:
+            return {"moved": False}
+        a, b = cur["sort_order"], nb["sort_order"]
+        if a == b:  # порядок совпадает — разводим соседей
+            a, b = (a, b + 1) if direction == "down" else (a, b - 1)
+        conn.execute("UPDATE templates SET sort_order = ?, updated_at = ? WHERE id = ?", (b, now(), template_id))
+        conn.execute("UPDATE templates SET sort_order = ?, updated_at = ? WHERE id = ?", (a, now(), nb["id"]))
+    return {"moved": True}
