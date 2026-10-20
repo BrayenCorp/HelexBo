@@ -63,6 +63,19 @@ class MigrationTest(unittest.TestCase):
 
 
 class SeedTest(BaseTest):
+    def test_production_shows_only_chosen_models(self):
+        """В бою видны только отобранные модели, аудио скрыто. Остальные не удалены — их можно включить в админке."""
+        import tempfile
+        from app.db import Database, init_db
+        with tempfile.TemporaryDirectory() as d:
+            db = Database(f"{d}/p.db")
+            init_db(db)
+            self.assertEqual([m["name"] for m in models.public_list(db, "photo")], ["Nano Banana 2", "Nano Banana 2 Lite", "Nano Banana 2.1"])
+            self.assertEqual([m["name"] for m in models.public_list(db, "video")], ["Seedance 2.5", "Seedance 2.0"])
+            self.assertEqual(models.public_list(db, "audio"), [])
+            with db.read() as c:
+                self.assertGreater(c.execute("SELECT COUNT(*) FROM ai_models WHERE is_active = 0").fetchone()[0], 10)
+
     def test_models_follow_the_brief(self):
         names = {k: [m["name"] for m in models.public_list(self.db, k)] for k in ("photo", "video", "audio")}
         self.assertEqual(len(names["photo"]), 12)
@@ -637,10 +650,13 @@ class ShowcaseFromCodeTest(BaseTest):
         from app.services import showcase_sync
         res = showcase_sync.sync(self.db)
         self.assertEqual(res["added"], len(showcase.SHOWCASE))
+        ideas = [c for c in showcase.SHOWCASE if (c.get("section") or "idea") == "idea"]
         items = catalog.list_items(self.db, "idea")
-        self.assertEqual(len(items), len(showcase.SHOWCASE))
+        self.assertEqual(len(items), len(ideas))
+        self.assertTrue(all(i["kind"] == "photo" for i in items))  # в «Идеях» — только фото
         self.assertEqual(items[0]["title"], "Кинематографический портрет")  # «Рекомендуем» — выше
         self.assertTrue(items[0]["featured"])
+        self.assertTrue(any(c["title"] == "Оживи фотографию" for c in catalog.list_items(self.db, "trend")))  # раздел из файла
         self.assertEqual(showcase_sync.sync(self.db)["updated"], len(showcase.SHOWCASE))  # повтор ничего не ломает
 
         original = list(showcase.SHOWCASE)
@@ -652,13 +668,13 @@ class ShowcaseFromCodeTest(BaseTest):
         finally:
             showcase.SHOWCASE[:] = original
         showcase_sync.sync(self.db)
-        self.assertEqual(len(catalog.list_items(self.db, "idea")), len(original))
+        self.assertEqual(len(catalog.list_items(self.db, "idea")), len([c for c in original if (c.get("section") or "idea") == "idea"]))
 
     def test_card_fields_and_generation(self):
         from app.services import showcase_sync
         showcase_sync.sync(self.db)
         card = catalog.get_by_slug(self.db, "idea-animate-photo")
-        self.assertEqual((card["kind"], card["price_credits"], card["tag"]), ("video", 70, "video"))
+        self.assertEqual((card["kind"], card["price_credits"], card["tag"], card["section"]), ("video", 70, "video", "trend"))
         self.assertEqual([r["code"] for r in card["required"]], ["photo"])
         self.add_balance(1, 200)
         o, _ = make(self, "s1", template_id=card["id"], image_bytes=make_photo())

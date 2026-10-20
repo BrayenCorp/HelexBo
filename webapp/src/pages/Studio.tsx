@@ -18,7 +18,7 @@ const STYLES: [string, string][] = [["", "Авто"], ["realistic", "Реали�
 type CreateRoute = Extract<Route, { name: "create" }>;
 
 /** Файл с превью и кнопкой выбора. */
-function Upload({ label, hint, file, onFile, icon = "upload" }: { label: string; hint?: string; file: File | null; onFile: (f: File | null) => void; icon?: "upload" | "image" }) {
+function Upload({ label, hint, file, onFile, icon = "upload", big = false }: { label: string; hint?: string; file: File | null; onFile: (f: File | null) => void; icon?: "upload" | "image"; big?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -30,7 +30,7 @@ function Upload({ label, hint, file, onFile, icon = "upload" }: { label: string;
   return (
     <div>
       <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { onFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-      <button type="button" className="upl" onClick={() => ref.current?.click()}>
+      <button type="button" className={`upl ${big ? "big" : ""}`} onClick={() => ref.current?.click()}>
         {url ? <img src={url} alt="" /> : <span className="upl-ic"><Icon name={icon} size={20} /></span>}
         <span className="grow"><b>{file ? file.name : label}</b><span>{file ? "Нажмите, чтобы заменить" : hint ?? "JPG, PNG или WebP"}</span></span>
         {file && <span role="button" aria-label="Убрать" onClick={(e) => { e.stopPropagation(); onFile(null); }}><Icon name="close" size={18} /></span>}
@@ -162,8 +162,8 @@ export function Studio({ init }: { init: CreateRoute }) {
       <div className="editor">
         <div className="panel">
           {free && (
-            <div className="pf-seg wide3" role="tablist">
-              {([["photo", "Фото", "image"], ["video", "Видео", "video"], ["audio", "Аудио", "audio"]] as const).map(([k, l, ic]) => (
+            <div className="pf-seg wide2" role="tablist">
+              {([["photo", "Фото", "image"], ["video", "Видео", "video"]] as const).map(([k, l, ic]) => (
                 <button key={k} role="tab" className={tabKind === k ? "on" : ""} onClick={() => { setTabKind(k); setModelId(undefined); setCount(1); setError(null); }}><Icon name={ic} size={16} /><span>{l}</span></button>
               ))}
             </div>

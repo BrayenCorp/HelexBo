@@ -8,7 +8,7 @@ import { tg } from "../telegram";
 import type { HistoryFilter, Order } from "../types";
 import { ErrorBox, Loading, Modal, useLoad } from "../ui";
 
-const FILTERS: [HistoryFilter, string][] = [["all", "Все"], ["images", "Фото"], ["video", "Видео"], ["audio", "Аудио"], ["fav", "Избранное"]];
+const FILTERS: [HistoryFilter, string][] = [["all", "Все"], ["images", "Фото"], ["video", "Видео"], ["fav", "Избранное"]];
 const GROUPS: Record<string, HistoryFilter> = { effects: "images", avatars: "images", marketing: "images" };
 
 export function Thumb({ o }: { o: Order }) {

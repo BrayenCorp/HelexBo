@@ -31,28 +31,22 @@ router = Router()
 STATUS_ICON = {"created": "…", "processing": "…", "done": "✓", "failed": "!"}
 
 
-class Flow(StatesGroup):
-    waiting_photo = State()
-    waiting_prompt = State()  # свободный запрос: сначала текст
-    waiting_free_photo = State()  # затем фото (необязательно)
-
-
 def esc(text: object) -> str:
     return html.escape(str(text))
 
 
 BRAND = "Nolla AI"
 BOT_DESCRIPTION = (
-    "Nolla AI ✨ — студия для творчества в Telegram. Картинки, видео и озвучка с лучшими AI-моделями: "
-    "эффекты 🪄, тренды 🔥, фотосессии 📸, аватары 🧑‍🎤 и реклама 📣. Опишите идею — остальное сделаем мы."
+    "Nolla AI ✨ — студия для творчества в Telegram. Изображения и видео с лучшими AI-моделями: "
+    "эффекты 🪄, тренды 🔥, фотосессии 📸 и реклама 📣. Опишите идею — остальное сделаем мы."
 )
-BOT_SHORT_DESCRIPTION = "✨ Картинки, видео и озвучка с помощью AI. Опишите идею — и готово."
+BOT_SHORT_DESCRIPTION = "✨ Изображения и видео с помощью AI. Опишите идею — и готово."
 
 # Единственный источник приветствия. Другого текста в проекте нет: если в чате появился иной —
 # значит, работает старая версия кода (чаще всего параллельно крутится прошлый деплой).
 WELCOME_TEXT = (
     "<b>Добро пожаловать в Nolla AI.</b>\n\n"
-    "Создавай изображения, видео и аудио с помощью современных AI-моделей."
+    "Создавай изображения и видео с помощью современных AI-моделей."
 )
 MENU_TEXT = "Что создаём?"
 
@@ -87,28 +81,10 @@ def main_menu(ctx: AppContext) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="📷 Создать фото", callback_data="mk:new:photo"),
            InlineKeyboardButton(text="🎬 Создать видео", callback_data="mk:new:video"))
-    kb.row(InlineKeyboardButton(text="🎙 Создать аудио", callback_data="mk:new:audio"),
-           InlineKeyboardButton(text="💡 Посмотреть идеи", callback_data="mk:ideas:0"))
+    kb.row(InlineKeyboardButton(text="💡 Посмотреть идеи", callback_data="mk:ideas:0"))
     kb.row(InlineKeyboardButton(text="🖼 Мои генерации", callback_data="menu:works"))
     kb.row(open_button(ctx, f"🚀 Открыть {BRAND}"))
     return kb.as_markup()
-
-
-def catalog_menu(ctx: AppContext) -> InlineKeyboardMarkup:
-    """Разделы витрины — отдельным меню, чтобы главное оставалось коротким."""
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="🪄 Эффекты", callback_data="pf:effect:0"),
-           InlineKeyboardButton(text="🔥 Тренды", callback_data="pf:trend:0"))
-    kb.row(InlineKeyboardButton(text="📸 Фотосессии", callback_data="pf:photoshoot:0"),
-           InlineKeyboardButton(text="🧑‍🎤 Аватары", callback_data="pf:avatar:0"))
-    kb.row(InlineKeyboardButton(text="✍️ Промпты", callback_data="pf:prompt:0"),
-           InlineKeyboardButton(text="📣 Маркетинг", callback_data="pf:marketing:0"))
-    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
-    return kb.as_markup()
-
-
-def price_label(t: dict, free: bool) -> str:
-    return "бесплатно" if free else f"{t['price_credits']} ток."
 
 
 async def ensure_user(ctx: AppContext, tg_user) -> None:
@@ -169,211 +145,6 @@ async def cb_home(call: CallbackQuery, state: FSMContext, ctx: AppContext):
 @router.callback_query(F.data == "menu:app")
 async def cb_app_missing(call: CallbackQuery):
     await call.answer("Приложение ещё не подключено: администратору нужно задать WEBAPP_URL.", show_alert=True)
-
-
-@router.callback_query(F.data.startswith("pf:"))
-async def cb_platform_section(call: CallbackQuery, ctx: AppContext):
-    """Каталог в чате: только эмодзи и название. Все подробности — в приложении."""
-    await ensure_user(ctx, call.from_user)
-    parts = call.data.split(":")
-    if parts[1] == "item":
-        return await _send_card(call, ctx, int(parts[2]))
-    section, page = parts[1], int(parts[2] if len(parts) > 2 else 0)
-    items = catalog.list_items(ctx.db, section)
-    if section == "marketing":
-        items += catalog.list_items(ctx.db, "mtool")
-    kb = InlineKeyboardBuilder()
-    chunk = items[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
-    for t in chunk:
-        kb.row(InlineKeyboardButton(text=f"{card_emoji(t)} {t['title']}", callback_data=f"pf:item:{t['id']}"))
-    nav = []
-    if page:
-        nav.append(InlineKeyboardButton(text="‹ Назад", callback_data=f"pf:{section}:{page - 1}"))
-    if (page + 1) * PAGE_SIZE < len(items):
-        nav.append(InlineKeyboardButton(text="Ещё ›", callback_data=f"pf:{section}:{page + 1}"))
-    if nav:
-        kb.row(*nav)
-    kb.row(open_button(ctx, "🎨 Открыть приложение"))
-    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
-    emoji, title = SECTION_EMOJI.get(section, "✨"), SECTION_TITLE.get(section, "Каталог")
-    text = f"{emoji} <b>{title}</b>\nВыбирайте — и открывайте в приложении 👇" if chunk else f"{emoji} <b>{title}</b>\nПока пусто."
-    await call.message.answer(text, reply_markup=kb.as_markup())
-    await call.answer()
-
-
-async def _send_card(call: CallbackQuery, ctx: AppContext, item_id: int) -> None:
-    try:
-        t = catalog.get_item(ctx.db, item_id)
-    except DomainError as e:
-        return await call.answer(e.message, show_alert=True)
-    kb = InlineKeyboardBuilder()
-    kb.row(open_button(ctx, "🚀 Открыть в приложении", t["slug"]))
-    kb.row(InlineKeyboardButton(text="‹ К списку", callback_data=f"pf:{t['section']}:0"),
-           InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
-    caption = f"{card_emoji(t)} <b>{esc(t['title'])}</b>"
-    if t["description"]:
-        caption += f"\n{esc(t['description'])}"
-    caption += "\n\nНажмите кнопку — и всё откроется в приложении ✨"
-    photo = t["preview_url"]
-    if photo and ctx.settings.webapp_url and photo.startswith("/"):
-        photo = ctx.settings.webapp_url.rstrip("/") + photo
-    if photo and photo.startswith("https://") and t["preview_kind"] == "image":
-        try:
-            await call.message.answer_photo(photo, caption=caption, reply_markup=kb.as_markup())
-            return await call.answer()
-        except Exception as e:  # обложка может быть недоступна снаружи — тогда просто текст
-            log.info("Обложка карточки не отправилась: %s", e)
-    await call.message.answer(caption, reply_markup=kb.as_markup())
-    await call.answer()
-
-
-@router.callback_query(F.data.in_({"menu:photo", "menu:video"}))
-async def cb_choose_kind(call: CallbackQuery, state: FSMContext, ctx: AppContext):
-    await state.clear()
-    await ensure_user(ctx, call.from_user)
-    kind = call.data.split(":")[1]
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="✍️ Своё описание", callback_data=f"free:{kind}"))
-    shown = 0
-    for c in categories.list_public(ctx.db):
-        n = len(templates.list_published(ctx.db, kind=kind, category=c["id"]))
-        if n:
-            kb.row(InlineKeyboardButton(text=f"{c['title']} · {n}", callback_data=f"cat:{kind}:{c['id']}"))
-            shown += 1
-    kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
-    await call.message.answer("Опишите идею своими словами или выберите категорию 👇" if shown else "✍️ Опишите идею своими словами:", reply_markup=kb.as_markup())
-    await call.answer()
-
-
-@router.callback_query(F.data.startswith("cat:"))
-async def cb_category(call: CallbackQuery, ctx: AppContext):
-    _, kind, cid = call.data.split(":", 2)
-    free = orders.free_status(ctx.db, call.from_user.id)[kind]
-    items = templates.list_published(ctx.db, kind=kind, category=cid)
-    kb = InlineKeyboardBuilder()
-    for t in items:
-        kb.row(InlineKeyboardButton(text=f"{t['title']} · {price_label(t, free)}", callback_data=f"tpl:{t['id']}"))
-    kb.row(InlineKeyboardButton(text="‹ Категории", callback_data=f"menu:{kind}"))
-    await call.message.answer("Выберите образ 👇", reply_markup=kb.as_markup())
-    await call.answer()
-
-
-@router.callback_query(F.data.startswith("tpl:"))
-async def cb_template(call: CallbackQuery, state: FSMContext, ctx: AppContext):
-    try:
-        t = templates.get_published(ctx.db, int(call.data.split(":")[1]))
-    except DomainError as e:
-        return await call.answer(e.message, show_alert=True)
-    free = orders.free_status(ctx.db, call.from_user.id)[t["kind"]]
-    await state.set_state(Flow.waiting_photo)
-    await state.update_data(template_id=t["id"])
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="✖️ Отмена", callback_data="menu:home"))
-    await call.message.answer(
-        f"{card_emoji(t)} <b>{esc(t['title'])}</b>\n{esc(t['description'])}\n\n"
-        "📷 Пришлите фото: лицо хорошо видно, хороший свет. Для парных образов — фото, где вы вместе.",
-        reply_markup=kb.as_markup(),
-    )
-    await call.answer()
-
-
-async def _download(bot: Bot, file_id: str) -> bytes:
-    buf = io.BytesIO()
-    await bot.download(file_id, destination=buf)
-    return buf.getvalue()
-
-
-async def _submit(message: Message, state: FSMContext, ctx: AppContext, file_id: str | None, user=None, request_id: str | None = None):
-    """Общая отправка заказа: по шаблону (template_id в состоянии) или свободный запрос (free_kind + prompt)."""
-    data = await state.get_data()
-    template_id, free_kind = data.get("template_id"), data.get("free_kind")
-    user = user or message.from_user
-    if not template_id and not free_kind:
-        return await message.answer("Сначала выберите, что создаём 👇", reply_markup=main_menu(ctx))
-    await ensure_user(ctx, user)
-    image = await _download(message.bot, file_id) if file_id else None
-    try:
-        order, created = await asyncio.to_thread(
-            lambda: orders.submit_generation(
-                ctx.db, ctx.storage, user_id=user.id, template_id=template_id, kind=free_kind,
-                request_id=request_id or f"tg:{message.chat.id}:{message.message_id}",  # повторная доставка апдейта не создаст второй заказ
-                image_bytes=image, prompt=data.get("prompt", ""), source="bot", max_bytes=ctx.settings.max_upload_bytes,
-            )
-        )
-    except InsufficientCredits:
-        kb = InlineKeyboardBuilder()
-        kb.row(open_button(ctx, "🎨 Открыть приложение"))
-        return await message.answer("Чтобы продолжить, загляните в приложение ✨", reply_markup=kb.as_markup())
-    except DomainError as e:
-        return await message.answer(esc(e.message))
-    await state.clear()
-    if not created:
-        return
-    await message.answer("🪄 Творим! Это займёт немного времени — пришлю результат сюда.")
-    ctx.runner.schedule(order["id"])
-
-
-# ---------- свободное описание ----------
-@router.callback_query(F.data.startswith("free:"))
-async def cb_free(call: CallbackQuery, state: FSMContext, ctx: AppContext):
-    kind = call.data.split(":")[1]
-    await state.clear()
-    await state.set_state(Flow.waiting_prompt)
-    await state.update_data(free_kind=kind, template_id=None)
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="Отмена", callback_data="menu:home"))
-    await call.message.answer(
-        "✍️ Опишите, что хотите получить (до 500 символов).\nНапример: <i>девушка в студии, мягкий свет, реалистично</i>",
-        reply_markup=kb.as_markup(),
-    )
-    await call.answer()
-
-
-@router.message(Flow.waiting_prompt, F.text)
-async def got_prompt(message: Message, state: FSMContext):
-    text = message.text.strip()
-    if len(text) > 500:
-        return await message.answer(f"Описание длиннее 500 символов ({len(text)}). Сократите, пожалуйста 🙏")
-    await state.update_data(prompt=text)
-    await state.set_state(Flow.waiting_free_photo)
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="✨ Создать без фото", callback_data="free_go"))
-    kb.row(InlineKeyboardButton(text="Отмена", callback_data="menu:home"))
-    await message.answer("📷 Хотите добавить своё фото? Отправьте его — или создайте без фото.", reply_markup=kb.as_markup())
-
-
-@router.callback_query(Flow.waiting_free_photo, F.data == "free_go")
-async def free_go(call: CallbackQuery, state: FSMContext, ctx: AppContext):
-    await _submit(call.message, state, ctx, None, user=call.from_user, request_id=f"tg:{call.message.chat.id}:{call.message.message_id}:go")
-    await call.answer()
-
-
-@router.message(Flow.waiting_free_photo, F.photo)
-async def free_photo(message: Message, state: FSMContext, ctx: AppContext):
-    await _submit(message, state, ctx, message.photo[-1].file_id)
-
-
-@router.message(Flow.waiting_prompt)
-@router.message(Flow.waiting_free_photo)
-async def free_other(message: Message):
-    await message.answer("✍️ Пришлите описание или фото. Для отмены нажмите «Отмена» выше.")
-
-
-@router.message(Flow.waiting_photo, F.photo)
-async def got_photo(message: Message, state: FSMContext, ctx: AppContext):
-    await _submit(message, state, ctx, message.photo[-1].file_id)
-
-
-@router.message(Flow.waiting_photo, F.document)
-async def got_document(message: Message, state: FSMContext, ctx: AppContext):
-    if not (message.document.mime_type or "").startswith("image/"):
-        return await message.answer("📷 Пришлите фото (изображение), пожалуйста.")
-    await _submit(message, state, ctx, message.document.file_id)
-
-
-@router.message(Flow.waiting_photo)
-async def waiting_photo_other(message: Message):
-    await message.answer("📷 Жду ваше фото. Или нажмите «Отмена» выше.")
 
 
 # ---------- баланс и оплата живут в приложении; обработчики оставлены для старых кнопок ----------
@@ -473,11 +244,7 @@ async def cb_work(call: CallbackQuery, ctx: AppContext):
 async def cmd_create(message: Message, state: FSMContext, ctx: AppContext):
     await state.clear()
     _log_command(ctx, message.from_user.id, "create")
-    kb = InlineKeyboardBuilder()
-    kb.row(open_button(ctx, "🎨 Открыть приложение"))
-    kb.row(InlineKeyboardButton(text="🖼 Фото в чате", callback_data="menu:photo"),
-           InlineKeyboardButton(text="🎞 Видео в чате", callback_data="menu:video"))
-    await message.answer(MENU_TEXT, reply_markup=kb.as_markup())
+    await message.answer(MENU_TEXT, reply_markup=main_menu(ctx))
 
 
 @router.message(Command("profile"))
@@ -486,7 +253,7 @@ async def cmd_profile(message: Message, ctx: AppContext):
     done = orders.count_done_by_kind(ctx.db, message.from_user.id)
     name = esc(message.from_user.first_name or "")
     text = (f"👤 <b>Профиль</b>{': ' + name if name else ''}\n"
-            f"🖼 Картинок: {done['photo']}\n🎞 Видео: {done['video']}\n🎧 Аудио: {done['audio']}\n\n"
+            f"🖼 Картинок: {done['photo']}\n🎞 Видео: {done['video']}\n\n"
             "Все подробности — в приложении ✨")
     kb = InlineKeyboardBuilder()
     kb.row(open_button(ctx, "🎨 Открыть приложение"))
@@ -558,7 +325,10 @@ async def _ask_start(message: Message, state: FSMContext, ctx: AppContext, kind:
 @router.callback_query(F.data.startswith("mk:new:"))
 async def cb_make_new(call: CallbackQuery, state: FSMContext, ctx: AppContext):
     await ensure_user(ctx, call.from_user)
-    await _ask_start(call.message, state, ctx, call.data.split(":")[2])
+    kind = call.data.split(":")[2]
+    if kind == "audio":  # раздел аудио выключен
+        return await call.answer("Аудио пока не делаем.", show_alert=True)
+    await _ask_start(call.message, state, ctx, kind)
     await call.answer()
 
 
@@ -657,7 +427,10 @@ async def cb_with_photo(call: CallbackQuery, state: FSMContext, ctx: AppContext)
     what = call.data.split(":")[2]
     if what == "effects":
         await state.clear()
-        await call.message.answer("🪄 <b>Эффекты</b>", reply_markup=catalog_menu(ctx))
+        kb = InlineKeyboardBuilder()
+        kb.row(open_button(ctx, "🪄 Открыть эффекты"))
+        kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
+        await call.message.answer("🪄 Эффекты, тренды и фотосессии — в приложении.", reply_markup=kb.as_markup())
         return await call.answer()
     await state.update_data(kind=what)
     if what == "photo":
@@ -676,15 +449,9 @@ async def cb_make_go(call: CallbackQuery, state: FSMContext, ctx: AppContext):
     await call.answer()
 
 
-@router.callback_query(F.data == "menu:catalog")
-async def cb_catalog_menu(call: CallbackQuery, ctx: AppContext):
-    await call.message.answer("✨ <b>Разделы</b>", reply_markup=catalog_menu(ctx))
-    await call.answer()
-
-
 # ---------- шаги мастера: тексты и фото ----------
 @router.message(bc.Make.text, F.text)
-async def make_audio_text(message: Message, state: FSMContext, ctx: AppContext):
+async def make_audio_text(message: Message, state: FSMContext, ctx: AppContext):  # оставлено на случай, если аудио снова включат
     text = (message.text or "").strip()
     if len(text) > 2000:
         return await message.answer(f"Текст длиннее 2000 символов ({len(text)}). Сократите, пожалуйста 🙏")
@@ -797,13 +564,9 @@ async def free_text_message(message: Message, state: FSMContext, ctx: AppContext
     slug = bc.guess_tool(text)
     last = bc.last_image_order(ctx, message.from_user.id)
 
-    if kind == "audio":
-        await state.update_data(kind="audio", prompt=text[:2000])
-        kb = InlineKeyboardBuilder()
-        for code, label in bc.VOICES:
-            kb.row(InlineKeyboardButton(text=label, callback_data=f"mk:voice:{code}"))
-        bc.cancel_row(kb)
-        return await message.answer("🗣 <b>Выберите голос</b>", reply_markup=kb.as_markup())
+    if kind == "audio":  # раздел аудио выключен
+        await state.clear()
+        return await message.answer("Озвучку пока не делаем. Зато умеем изображения и видео 👇", reply_markup=main_menu(ctx))
 
     use_last = bool(last) and (bc.wants_last_result(text) or (slug and kind != "video"))
     await state.update_data(kind=kind, prompt=text[:500], **({"ref_order_id": last["id"]} if use_last else {}))

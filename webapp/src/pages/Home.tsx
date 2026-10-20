@@ -11,7 +11,6 @@ import { useLoad } from "../ui";
 const ACTIONS: [string, string, IconName, Route][] = [
   ["Создать фото", "Изображение по описанию", "image", { name: "create", kind: "photo" as Kind }],
   ["Создать видео", "По описанию или из фото", "video", { name: "create", kind: "video" as Kind }],
-  ["Создать аудио", "Озвучка текста голосом", "audio", { name: "create", kind: "audio" as Kind }],
   ["Посмотреть идеи", "Готовые образы и сцены", "sparkle", { name: "ideas" }],
   ["Мои генерации", "Все ваши работы", "clock", { name: "history" }],
 ];
@@ -26,7 +25,7 @@ export function Home() {
     <>
       <div className="hero-pf">
         <h1 className="pf-h1">Добро пожаловать<br />в Nolla AI</h1>
-        <p className="pf-lead">Создавайте изображения, видео и аудио с помощью искусственного интеллекта.</p>
+        <p className="pf-lead">Создавайте изображения и видео с помощью искусственного интеллекта.</p>
       </div>
 
       <div className="act-grid-home">

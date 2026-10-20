@@ -233,10 +233,11 @@ def create_app(ctx: AppContext) -> FastAPI:
     async def ideas(tag: str | None = None, q: str | None = None, _: dict = Depends(current_user)):
         """Витрина «Идеи»: карточки, которые владелец добавил в админке.
         Пока витрина пустая, показываем тренды и фотосессии, чтобы раздел не был пустым."""
-        items = catalog.list_items(ctx.db, "idea", tag, q, on_ideas=True)
+        photo_only = lambda rows: [r for r in rows if r["kind"] == "photo"]
+        items = photo_only(catalog.list_items(ctx.db, "idea", tag, q, on_ideas=True))
         if items or (tag and tag != "all"):
             return items
-        return catalog.list_items(ctx.db, "trend", q=q, limit=12) + catalog.list_items(ctx.db, "photoshoot", q=q, limit=12)
+        return photo_only(catalog.list_items(ctx.db, "trend", q=q, limit=12) + catalog.list_items(ctx.db, "photoshoot", q=q, limit=12))
 
     @app.get("/api/catalog/{section}")
     async def catalog_list(section: str, tag: str | None = None, q: str | None = None, popular: bool = False, _: dict = Depends(current_user)):

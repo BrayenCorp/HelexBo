@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { useApp, showToast } from "../ctx";
-import { fmtDate, nf, tokensText } from "../format";
+import { fmtShort, nf, tokensText } from "../format";
 import { Icon } from "../icons";
 import { Back, Dropdown, Hdr } from "../pf";
 import { openExternal, tgPhoto } from "../telegram";
@@ -32,7 +32,7 @@ export function Profile() {
         <div><b>{nf(me.balance)}</b><span>Токенов на балансе</span></div>
         <div><b>{nf(p?.generations ?? 0)}</b><span>Работ создано</span></div>
         <div><b>{nf(sum.data?.spent ?? 0)}</b><span>Токенов потрачено</span></div>
-        <div><b>{p ? fmtDate(me.created_at ?? null) : "—"}</b><span>С нами с</span></div>
+        <div><b>{fmtShort(me.created_at)}</b><span>С нами с</span></div>
       </div>
 
       <div className="pf-grid wide" style={{ gap: 10 }}>

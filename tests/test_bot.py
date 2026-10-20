@@ -131,8 +131,9 @@ class BotTest(BaseTest):
         self.send("/start")
         self.assertTrue(any("Добро пожаловать в Nolla AI" in o["text"] for o in self.outbox), self.outbox)
         labels = self.labels()
-        for want in ("📷 Создать фото", "🎬 Создать видео", "🎙 Создать аудио", "💡 Посмотреть идеи", "🖼 Мои генерации"):
+        for want in ("📷 Создать фото", "🎬 Создать видео", "💡 Посмотреть идеи", "🖼 Мои генерации"):
             self.assertIn(want, labels)
+        self.assertNotIn("🎙 Создать аудио", labels)  # аудио не делаем
         self.assertTrue(any("Открыть" in l for l in labels))
         web = [b for row in self.last()["markup"].inline_keyboard for b in row if b.web_app]
         self.assertEqual(web[0].web_app.url, "https://app.example")
@@ -159,20 +160,11 @@ class BotTest(BaseTest):
         for want in ("⬇️ Скачать", "🔁 Создать заново", "✏️ Изменить", "✨ Вариация", "🎬 Сделать видео"):
             self.assertIn(want, actions)
 
-    def test_audio_flow_voice_and_style(self):
+    def test_audio_is_off(self):
+        before = len(self.outbox)
         self.tap("mk:new:audio")
-        self.assertIn("текст для озвучки", self.last()["text"])
-        self.send("Привет! Это Nolla AI.")
-        self.assertIn("Выберите голос", self.last()["text"])
-        self.tap(self.data_of("Максим"))
-        self.assertIn("стиль озвучки", self.last()["text"])
-        self.tap(self.data_of("Рекламная"))
-        self.assertIn("Стоимость", self.last()["text"])
-        self.tap(self.data_of("Создать"))
-        o = self.my_orders()[0]
-        self.assertEqual((o["kind"], o["source"]), ("audio", "bot"))
-        self.assertEqual(o["params"] and __import__("json").loads(o["params"])["voice"], "maxim")
-        self.assertEqual(self.bot.sent[-1]["kind"], "audio")
+        self.assertEqual(len(self.outbox), before)  # ничего не предлагаем
+        self.assertEqual(self.my_orders(), [])
 
     def test_video_from_photo(self):
         self.tap("mk:new:video")
@@ -192,7 +184,7 @@ class BotTest(BaseTest):
         self.assertEqual(self.my_orders()[0]["kind"], "photo")
 
         self.send("Озвучь этот текст мужским голосом")
-        self.assertIn("Выберите голос", self.last()["text"])
+        self.assertNotIn("Выберите голос", self.last()["text"])
 
     def test_context_last_image_for_video(self):
         self.send("создай фото города")
@@ -273,10 +265,10 @@ class BotTest(BaseTest):
             credits.apply(c, self.UID, -credits.get_balance(self.db, self.UID), "admin_adjust")
         orders.submit_generation  # заказ не создастся: бесплатная попытка уже есть, но баланс нулевой
         self.send("создай фото звезды")
-        self.tap(self.data_of("Nano Banana Pro"))
+        self.tap(self.data_of("Nano Banana 2.1"))
         self.tap(self.data_of("Создать"))
         if self.my_orders():  # первая попытка бесплатна — тогда проверяем вторую
             self.send("создай фото ещё раз")
-            self.tap(self.data_of("Nano Banana Pro"))
+            self.tap(self.data_of("Nano Banana 2.1"))
             self.tap(self.data_of("Создать"))
         self.assertIn("токен", self.last()["text"].casefold())

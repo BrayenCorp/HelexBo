@@ -25,6 +25,7 @@ class BaseTest(unittest.TestCase):
         init_db(self.db)
         with self.db.tx() as conn:  # старые тестовые пакеты (p10/p30/p100) нужны ряду проверок о кредитах и платежах
             conn.execute("UPDATE packages SET is_active = 1 WHERE id IN ('p10', 'p30', 'p100')")
+            conn.execute("UPDATE ai_models SET is_active = 1 WHERE slug != ''")  # в бою показываются не все модели; тестам нужны все
         self.storage = Storage(self.dir)
         self.mock = ProviderRegistry("mock")
         self.live = ProviderRegistry("live")  # заглушки: ключей нет → «не подключено»

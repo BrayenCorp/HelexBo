@@ -12,7 +12,8 @@ from ..errors import DomainError
 from ..storage import Storage
 from .images import sanitize_image
 
-EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+EXTS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm", ".mov"}
+VIDEO_EXTS = {".mp4", ".webm", ".mov"}
 MAX_FILES = 200
 
 
@@ -23,7 +24,7 @@ def _files(storage: Storage) -> list[Path]:
 
 
 def list_public(storage: Storage) -> list[str]:
-    """Адреса фото для интерфейса. Пусто — интерфейс покажет нейтральные плашки."""
+    """Адреса ваших фото и видео для обложек. Пусто — интерфейс покажет нейтральные плашки."""
     return [f"/media/previews/{p.name}" for p in _files(storage)]
 
 
@@ -32,6 +33,7 @@ def list_admin(storage: Storage) -> list[dict]:
 
 
 def save(storage: Storage, data: bytes, max_bytes: int) -> dict:
+    """Загрузка фото (видео кладите в папку сами — они не пережимаются)."""
     if len(_files(storage)) >= MAX_FILES:
         raise DomainError(f"Больше {MAX_FILES} фото не нужно — удалите лишние")
     if not data:

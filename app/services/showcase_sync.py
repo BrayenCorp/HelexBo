@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 KINDS = {"photo", "video", "audio"}
 DEFAULT_MODEL = {"photo": "image-default", "video": "video-default", "audio": "audio-default"}
-FIELDS = ("title", "description", "category", "kind", "prompt", "model", "price", "image", "needs", "featured", "on_home", "hidden")
+SECTIONS = ("idea", "trend", "photoshoot", "effect", "marketing")
 
 
 def _model_for(conn, card: dict) -> str:
@@ -46,6 +46,8 @@ def _check(card: dict) -> None:
             raise ValueError(f"В карточке витрины не заполнено поле «{field}»: {card.get('slug') or card}")
     if card["kind"] not in KINDS:
         raise ValueError(f"У карточки {card['slug']} тип должен быть photo, video или audio")
+    if (card.get("section") or "idea") not in SECTIONS:
+        raise ValueError(f"У карточки {card['slug']} раздел должен быть одним из: {', '.join(SECTIONS)}")
 
 
 def sync(db: Database) -> dict:
@@ -73,7 +75,7 @@ def sync(db: Database) -> dict:
                 "on_ideas": 1,
                 "is_published": 0 if card.get("hidden") else 1,
                 "sort_order": (i + 1) * 10,
-                "section": "idea",
+                "section": card.get("section") or "idea",
                 "category": "trends",
                 "emoji": "✦",
                 "updated_at": ts,
@@ -86,9 +88,10 @@ def sync(db: Database) -> dict:
                 cols = ["slug", "created_at", *data.keys()]
                 conn.execute(f"INSERT INTO templates ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})", [slug, ts, *data.values()])
                 added += 1
+        # Карточки, которых больше нет в файле, скрываются (история заказов по ним сохраняется).
         if seen:
             marks = ", ".join("?" * len(seen))
-            cur = conn.execute(f"UPDATE templates SET is_published = 0, updated_at = ? WHERE section = 'idea' AND is_published = 1 "
+            cur = conn.execute(f"UPDATE templates SET is_published = 0, updated_at = ? WHERE is_published = 1 AND slug LIKE 'idea-%' "
                                f"AND slug NOT IN ({marks})", [ts, *seen])
             hidden = cur.rowcount or 0
     if added or updated or hidden:

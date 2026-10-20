@@ -8,8 +8,13 @@
 1. Положите картинку в папку  webapp/public/showcase/  (например, night-portrait.jpg).
    В карточке укажите путь "/showcase/night-portrait.jpg".
    Можно и без картинки: тогда подставится одно из ваших фото или нейтральная плашка.
-2. Добавьте объект в список SHOWCASE ниже.
+   Видео тоже можно: положите night.mp4 туда же и укажите "image": "/showcase/night.mp4".
+2. Добавьте объект в список SHOWCASE ниже. Поле section решает, в каком разделе она появится:
+   "idea" — «Идеи», "trend" — «Тренды», "photoshoot" — «Фотосессии», "effect" — «Эффекты», "marketing" — «Маркетинг».
 3. Пересоберите приложение (npm run build) и перезапустите сервер — карточка появится сама.
+
+В разделе «Идеи» показываются только карточки с kind="photo" — человек просто загружает своё фото.
+Видео и остальное кладите в "trend", "photoshoot", "effect" или "marketing".
 
 ПОЛЯ КАРТОЧКИ
 -------------
@@ -23,6 +28,7 @@
                              например "Nano Banana 2". Пусто — модель по типу (kind)
     price                    цена в токенах. 0 или пусто — цена модели по умолчанию
     image                    путь к превью: "/showcase/имя-файла.jpg"
+    section                  куда попадёт карточка: "idea" (по умолчанию) | "trend" | "photoshoot" | "effect" | "marketing"
     needs                    что должен прислать пользователь: ["person"], ["photo"], ["product"], [] — ничего
     featured    True/False   «Рекомендуем»: карточка поднимается выше остальных
     on_home     True/False   показывать на главной (по умолчанию True)
@@ -61,7 +67,7 @@ SHOWCASE: list[dict] = [
                   "film grain, keep the face recognizable, natural skin",
         "model": "Nano Banana 2",
         "price": 14,
-        "image": "/showcase/9aae985bffd1eb8e6ab080aa67a3dc3f.jpg",
+        "image": "",
         "needs": ["person"],
         "featured": True,
     },
@@ -75,7 +81,7 @@ SHOWCASE: list[dict] = [
                   "keep the face recognizable",
         "model": "Nano Banana 2",
         "price": 14,
-        "image": "/showcase/night.jpg",
+        "image": "",
         "needs": ["person"],
         "featured": True,
     },
@@ -89,7 +95,7 @@ SHOWCASE: list[dict] = [
                   "keep the face recognizable",
         "model": "Seedream 5 Pro",
         "price": 16,
-        "image": "/showcase/night.jpg",
+        "image": "",
         "needs": ["person"],
     },
     {
@@ -101,11 +107,12 @@ SHOWCASE: list[dict] = [
         "prompt": "Luxury studio photoshoot, rich lighting, glossy premium look, tasteful, keep the face recognizable",
         "model": "Nano Banana Pro",
         "price": 16,
-        "image": "/showcase/f423d5a54fa814b7653d6dfa67db9c3e.jpg",
+        "image": "",
         "needs": ["person"],
     },
     {
         "slug": "idea-animate-photo",
+        "section": "trend",
         "title": "Оживи фотографию",
         "description": "Короткое видео из обычного снимка: лёгкое движение и дыхание кадра.",
         "category": "video",
@@ -113,12 +120,13 @@ SHOWCASE: list[dict] = [
         "prompt": "Animate the photo: subtle natural motion, gentle camera move, realistic lighting",
         "model": "Kling 3.0 Photo",
         "price": 70,
-        "image": "/showcase/ecc894af2e9f5ff329c7e845eae379e9.jpg",
+        "image": "",
         "needs": ["photo"],
         "featured": True,
     },
     {
         "slug": "idea-ad-video",
+        "section": "trend",
         "title": "Рекламное видео",
         "description": "Вертикальный ролик для соцсетей с акцентом на товар.",
         "category": "marketing",
@@ -126,19 +134,7 @@ SHOWCASE: list[dict] = [
         "prompt": "Vertical advertising video, product in focus, clean composition, soft studio light, smooth camera move",
         "model": "Seedance 2.5",
         "price": 70,
-        "image": "/showcase/c97f20309fc6d3598291220ec7bc4148.jpg",
-        "needs": [],
-    },
-    {
-        "slug": "idea-voiceover-ad",
-        "title": "Рекламная озвучка",
-        "description": "Короткий текст голосом диктора — для ролика или сторис.",
-        "category": "audio",
-        "kind": "audio",
-        "prompt": "",
-        "model": "Eleven",
-        "price": 10,
-        "image": "/showcase/630b8cbf0f9dfd0eba264eaab09d535f.jpg",
+        "image": "",
         "needs": [],
     },
 ]

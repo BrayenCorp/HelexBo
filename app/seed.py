@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .db import Database, now
 
-SEED_VERSION = "6"
+SEED_VERSION = "7"
 
 # (slug, название)
 CATEGORIES = [
@@ -422,6 +422,18 @@ def _seed_v6(conn, ts: str) -> None:
     conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('frame_regen_price', '4')")
 
 
+# Какие модели показываем пользователю. Остальные скрыты (не удалены): включить можно в админке.
+ACTIVE_MODELS = ("Nano Banana 2", "Nano Banana 2.1", "Nano Banana 2 Lite", "Seedance 2.0", "Seedance 2.5")
+
+
+def _seed_v7(conn, ts: str) -> None:
+    """Оставляем только нужные модели изображений и видео. Остальные скрыты (не удалены).
+    Аудио-модель тоже скрыта: раздел аудио в интерфейсе и в боте не показывается."""
+    marks = ", ".join("?" * len(ACTIVE_MODELS))
+    conn.execute(f"UPDATE ai_models SET is_active = 0 WHERE name NOT IN ({marks})", ACTIVE_MODELS)
+    conn.execute(f"UPDATE ai_models SET is_active = 1 WHERE name IN ({marks})", ACTIVE_MODELS)
+
+
 def apply_welcome_default(db: Database, amount: int) -> None:
     """Один раз при обновлении до платформы: если стартовый бонус не задавали (0), включаем его (WELCOME_BONUS в .env).
     Дальше значение меняется только в админ-панели."""
@@ -454,4 +466,5 @@ def seed_defaults(db: Database) -> None:
             _seed_v4(conn, ts)
         _seed_v5(conn, ts)
         _seed_v6(conn, ts)
+        _seed_v7(conn, ts)
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('seed_version', ?)", (SEED_VERSION,))
