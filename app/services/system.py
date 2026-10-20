@@ -21,7 +21,17 @@ async def _bot_status(ctx) -> dict:
             _bot_cache.update(ts=time.time(), value={"status": OK, "detail": f"Работает: @{me.username}"})
         except Exception as e:  # noqa: BLE001
             _bot_cache.update(ts=time.time(), value={"status": ERROR, "detail": f"Telegram API недоступен: {type(e).__name__}"})
-    return {"code": "bot", "title": "Telegram-бот", **_bot_cache["value"]}
+    out = {"code": "bot", "title": "Telegram-бот", **_bot_cache["value"]}
+    from . import site_settings
+    build = site_settings.get_value(ctx.db, "bot_build")
+    problems = site_settings.get_value(ctx.db, "bot_profile_problems")
+    if build:
+        out["detail"] += f" · сборка {build}"
+    if problems:
+        out["status"] = WARN
+        out["detail"] += (f". Telegram не принял часть профиля ({problems}) — описание в карточке бота могло остаться старым: "
+                          "поправьте его вручную в @BotFather (Edit Bot → Edit Description).")
+    return out
 
 
 async def health(ctx) -> list[dict]:

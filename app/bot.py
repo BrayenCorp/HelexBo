@@ -50,6 +50,9 @@ WELCOME_TEXT = (
 )
 MENU_TEXT = "Что создаём?"
 
+# Метка сборки. Меняйте вместе с заметными правками бота: по ней видно, какой код сейчас отвечает.
+BUILD = "2026-10-20.1"
+
 
 # Эмодзи для разделов и категорий каталога — чтобы в чате было живо и понятно.
 SECTION_EMOJI = {"effect": "🪄", "trend": "🔥", "photoshoot": "📸", "prompt": "✍️", "marketing": "📣", "mtool": "🛠", "avatar": "🧑‍🎤"}
@@ -245,6 +248,18 @@ async def cmd_create(message: Message, state: FSMContext, ctx: AppContext):
     await state.clear()
     _log_command(ctx, message.from_user.id, "create")
     await message.answer(MENU_TEXT, reply_markup=main_menu(ctx))
+
+
+@router.message(Command("version"))
+async def cmd_version(message: Message, ctx: AppContext):
+    """Короткая проверка: какой код отвечает прямо сейчас."""
+    _log_command(ctx, message.from_user.id, "version")
+    await message.answer(
+        f"🧩 <b>Сборка {BUILD}</b>\n"
+        f"Приветствие: {esc(WELCOME_TEXT.splitlines()[0])}\n"
+        f"Кнопок в меню: {sum(len(r) for r in main_menu(ctx).inline_keyboard)}\n\n"
+        "Если здесь не та сборка, которую вы залили, — значит отвечает старый процесс бота."
+    )
 
 
 @router.message(Command("profile"))
@@ -637,23 +652,24 @@ def build_bot(ctx: AppContext) -> tuple[Bot, Dispatcher]:
 async def setup_bot_profile(bot: Bot, ctx: AppContext) -> None:
     """Имя, описание, команды и кнопка меню бота. Каждый шаг независим: сбой одного не мешает остальным."""
 
+    problems: list[str] = []
+
     async def step(title: str, coro):
         try:
             await coro
         except Exception as e:  # Telegram ограничивает частоту смены имени/описания — это не критично
             log.warning("Профиль бота: «%s» не обновлён: %s", title, e)
+            problems.append(f"{title}: {type(e).__name__}")
 
     async def name():
         if (await bot.get_my_name()).name != BRAND:
             await bot.set_my_name(name=BRAND)
 
-    async def description():
-        if (await bot.get_my_description()).description != BOT_DESCRIPTION:
-            await bot.set_my_description(description=BOT_DESCRIPTION)
+    async def description():  # ставим всегда: описание в карточке бота Telegram кеширует
+        await bot.set_my_description(description=BOT_DESCRIPTION)
 
     async def short():
-        if (await bot.get_my_short_description()).short_description != BOT_SHORT_DESCRIPTION:
-            await bot.set_my_short_description(short_description=BOT_SHORT_DESCRIPTION)
+        await bot.set_my_short_description(short_description=BOT_SHORT_DESCRIPTION)
 
     await step("имя", name())
     await step("описание", description())
@@ -666,6 +682,10 @@ async def setup_bot_profile(bot: Bot, ctx: AppContext) -> None:
         BotCommand(command="history", description="🕘 Мои работы"),
         BotCommand(command="settings", description="⚙️ Настройки"),
     ]))
+    from .services import site_settings
+    site_settings.set_value(ctx.db, "bot_build", BUILD)
+    site_settings.set_value(ctx.db, "bot_profile_problems", "; ".join(problems))
+    log.info("Бот: сборка %s, приветствие «%s»", BUILD, WELCOME_TEXT.splitlines()[0])
     if ctx.settings.webapp_url:
         await step("кнопка меню", bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(text=BRAND, web_app=WebAppInfo(url=ctx.settings.webapp_url))))

@@ -34,6 +34,18 @@ def update(db: Database, fields: dict) -> dict:
     return get_all(db)
 
 
+def set_value(db: Database, key: str, value: str) -> None:
+    """Служебная запись (не из админки): отметка сборки бота и подобное."""
+    with db.tx() as conn:
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value)[:300]))
+
+
+def get_value(db: Database, key: str, default: str = "") -> str:
+    with db.read() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
 def get_int(conn, key: str, default: int = 0) -> int:
     row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     try:

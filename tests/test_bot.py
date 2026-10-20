@@ -272,3 +272,19 @@ class BotTest(BaseTest):
             self.tap(self.data_of("Nano Banana 2.1"))
             self.tap(self.data_of("Создать"))
         self.assertIn("токен", self.last()["text"].casefold())
+
+    def test_version_command_reports_build(self):
+        self.send("/version")
+        text = self.last()["text"]
+        self.assertIn(B.BUILD, text)
+        self.assertIn("Добро пожаловать в Nolla AI.", text)
+
+    def test_only_one_welcome_in_code(self):
+        """Единственный источник приветствия: /start и повторный /start дают один и тот же текст."""
+        self.send("/start")
+        first = [o["text"] for o in self.outbox]
+        self.outbox.clear()
+        self.send("/start")
+        self.assertEqual(len(self.outbox), 1)
+        self.assertEqual(self.outbox[0]["text"], B.WELCOME_TEXT)
+        self.assertTrue(any(t == B.WELCOME_TEXT for t in first))
