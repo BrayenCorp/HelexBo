@@ -14,11 +14,12 @@ import { Integrations } from "./pages/Integrations";
 import { Models } from "./pages/Models";
 import { OrderView } from "./pages/OrderView";
 import { Onboarding, SearchOverlay } from "./pages/Overlays";
-import { Profile, Security, Settings } from "./pages/Profile";
+import { Profile, Settings } from "./pages/Profile";
 import { Studio } from "./pages/Studio";
 import { tg } from "./telegram";
 import type { Me, Nav, Route } from "./types";
 import { BalanceChip, ErrorBox, Loading, Logo, Sheet } from "./ui";
+import { CreateMenu } from "./pages/Overlays";
 
 type NavItem = { id: string; label: string; icon: IconName; to: Route; match: Route["name"][] };
 const MAIN: NavItem[] = [
@@ -36,8 +37,7 @@ const MAIN: NavItem[] = [
 ];
 const MORE: NavItem[] = [
   { id: "balance", label: "Баланс", icon: "coin", to: { name: "balance" }, match: ["balance", "payments"] },
-  { id: "integrations", label: "Интеграции", icon: "plug", to: { name: "integrations" }, match: ["integrations"] },
-  { id: "profile", label: "Профиль", icon: "settings", to: { name: "profile" }, match: ["profile", "settings", "security"] },
+  { id: "profile", label: "Профиль", icon: "settings", to: { name: "profile" }, match: ["profile", "settings"] },
 ];
 
 export default function App() {
@@ -141,6 +141,10 @@ export default function App() {
             <span className="logo-wrap"><Logo /></span>
             <span className="pf-top-space" />
             <button className="pf-search-btn" onClick={() => setSearch(true)} aria-label="Поиск"><Icon name="search" size={18} /><span>Поиск</span><kbd>Ctrl K</kbd></button>
+            <div className="plus-wrap">
+              <button className="plus-btn" onClick={() => setQuick((v) => !v)} aria-label="Создать" aria-expanded={quick}><Icon name="plus" size={20} /></button>
+              {quick && <CreateMenu onClose={() => setQuick(false)} onPick={(kind) => nav.go({ name: "create", kind })} onMore={() => nav.go({ name: "effects" })} />}
+            </div>
             <BalanceChip balance={me.balance} onClick={() => nav.go({ name: "balance" })} />
           </header>
           <main className="pf-page" key={pageKey}>
@@ -160,7 +164,6 @@ export default function App() {
             {route.name === "history" && <History initial={route.filter} />}
             {route.name === "profile" && <Profile />}
             {route.name === "settings" && <Settings />}
-            {route.name === "security" && <Security />}
             {route.name === "balance" && <Balance />}
             {route.name === "payments" && <Payments />}
             {route.name === "integrations" && <Integrations />}
@@ -168,33 +171,21 @@ export default function App() {
         </div>
 
         <div className="pf-dock">
-          <div className="pf-action">
-            <button className="btn orange block" onClick={() => setQuick(true)}><Icon name="plus" size={18} />Создать</button>
-          </div>
           <nav className="pf-bottom" aria-label="Разделы">
             {bottom("home", "Главная", "home", { name: "home" }, ["home"])}
             {bottom("ideas", "Идеи", "bolt", { name: "ideas" }, ["ideas", "trends", "photoshoots", "effects", "marketing", "prompts"])}
             {bottom("history", "Генерации", "clock", { name: "history" }, ["history", "order"])}
-            {bottom("profile", "Профиль", "user", { name: "profile" }, ["profile", "settings", "security", "balance", "payments", "integrations"])}
+            {bottom("profile", "Профиль", "user", { name: "profile" }, ["profile", "settings", "balance", "payments", "integrations"])}
             <button className={["create", "tool", "models", "avatars"].includes(route.name) ? "on" : ""} onClick={() => setMenu(true)}><Icon name="menu" size={22} /><span>Ещё</span></button>
           </nav>
         </div>
 
-        {quick && (
-          <Sheet title="Что создаём?" onClose={() => setQuick(false)}>
-            <div className="quick-pick">
-              {([["photo", "Изображение", "По описанию или фото", "image"], ["video", "Видео", "По описанию или из фото", "video"], ["audio", "Аудио", "Озвучка текста голосом", "audio"]] as const).map(([k, t, d, ic]) => (
-                <button key={k} onClick={() => nav.go({ name: "create", kind: k })}><Icon name={ic} size={22} /><span className="grow"><b>{t}</b><span>{d}</span></span><Icon name="chevron" size={16} /></button>
-              ))}
-              <button onClick={() => nav.go({ name: "effects" })}><Icon name="wand" size={22} /><span className="grow"><b>Эффекты и инструменты</b><span>Раскадровка, ракурсы, примерка</span></span><Icon name="chevron" size={16} /></button>
-            </div>
-          </Sheet>
-        )}
-
         {menu && (
           <Sheet title="Разделы" onClose={() => setMenu(false)}>
             <div className="menu-sheet">
-              {[...MAIN.filter((i) => !["home", "create", "history"].includes(i.id)), ...MORE].map((it) => <button key={it.id} onClick={() => nav.reset(it.to)}><Icon name={it.icon} size={20} />{it.label}</button>)}
+              {[...MAIN.filter((i) => !["home", "ideas", "history"].includes(i.id)), ...MORE].map((it) => (
+                <button key={it.id} onClick={() => nav.reset(it.to)}><Icon name={it.icon} size={20} />{it.label}</button>
+              ))}
               <button onClick={() => { setMenu(false); setSearch(true); }}><Icon name="search" size={20} />Поиск</button>
             </div>
           </Sheet>

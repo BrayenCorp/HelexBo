@@ -48,6 +48,14 @@ BOT_DESCRIPTION = (
 )
 BOT_SHORT_DESCRIPTION = "✨ Картинки, видео и озвучка с помощью AI. Опишите идею — и готово."
 
+# Единственный источник приветствия. Другого текста в проекте нет: если в чате появился иной —
+# значит, работает старая версия кода (чаще всего параллельно крутится прошлый деплой).
+WELCOME_TEXT = (
+    "<b>Добро пожаловать в Nolla AI.</b>\n\n"
+    "Создавай изображения, видео и аудио с помощью современных AI-моделей."
+)
+MENU_TEXT = "Что создаём?"
+
 
 # Эмодзи для разделов и категорий каталога — чтобы в чате было живо и понятно.
 SECTION_EMOJI = {"effect": "🪄", "trend": "🔥", "photoshoot": "📸", "prompt": "✍️", "marketing": "📣", "mtool": "🛠", "avatar": "🧑‍🎤"}
@@ -146,23 +154,15 @@ async def cmd_start(message: Message, state: FSMContext, ctx: AppContext):
     await ensure_user(ctx, message.from_user)
     if (message.text or "").startswith("/start"):
         events.log(ctx.db, "bot_started", message.from_user.id)
-    prof = users.profile(ctx.db, message.from_user.id)
-    if not prof["welcomed"]:
+    if not users.profile(ctx.db, message.from_user.id)["welcomed"]:
         users.mark_welcomed(ctx.db, message.from_user.id)
-        await message.answer("🎉 Аккаунт создан. Рады вас видеть!")
-    name = esc(message.from_user.first_name or "")
-    text = (
-        f"👋 <b>Добро пожаловать в {BRAND}</b>{', ' + name if name else ''}!\n\n"
-        "Я помогу вам создавать изображения, видео и аудио с помощью AI.\n"
-        "Можно нажать кнопку, а можно просто написать мне: <i>«создай фото девушки в чёрном костюме на фоне ночного города»</i> ✨"
-    )
-    await message.answer(text, reply_markup=main_menu(ctx))
+    await message.answer(WELCOME_TEXT, reply_markup=main_menu(ctx))
 
 
 @router.callback_query(F.data == "menu:home")
 async def cb_home(call: CallbackQuery, state: FSMContext, ctx: AppContext):
     await state.clear()
-    await call.message.answer("🏠 Главное меню:", reply_markup=main_menu(ctx))
+    await call.message.answer(MENU_TEXT, reply_markup=main_menu(ctx))
     await call.answer()
 
 
@@ -477,7 +477,7 @@ async def cmd_create(message: Message, state: FSMContext, ctx: AppContext):
     kb.row(open_button(ctx, "🎨 Открыть приложение"))
     kb.row(InlineKeyboardButton(text="🖼 Фото в чате", callback_data="menu:photo"),
            InlineKeyboardButton(text="🎞 Видео в чате", callback_data="menu:video"))
-    await message.answer("Что создаём? 🪄\nВ приложении — все модели, эффекты и настройки ✨", reply_markup=kb.as_markup())
+    await message.answer(MENU_TEXT, reply_markup=kb.as_markup())
 
 
 @router.message(Command("profile"))
@@ -859,7 +859,7 @@ class BotNotifier:
         else:
             await self.bot.send_photo(chat_id, file, caption=caption, reply_markup=kb)
         if with_menu and not with_actions:
-            await self.bot.send_message(chat_id, "Что создадим дальше? 🪄", reply_markup=main_menu(self.ctx))
+            await self.bot.send_message(chat_id, MENU_TEXT, reply_markup=main_menu(self.ctx))
 
 
 def build_bot(ctx: AppContext) -> tuple[Bot, Dispatcher]:

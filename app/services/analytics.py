@@ -300,3 +300,65 @@ def bot_stats(db: Database, s: date, e: date) -> dict:
                 "generations_period": one("SELECT COUNT(*) FROM orders WHERE source = 'app' AND substr(created_at,1,10) BETWEEN ? AND ?", S, E),
             },
         }
+
+
+def dashboard(db: Database) -> dict:
+    """Короткая сводка для главной админки: только реальные числа из базы, без периодов и настроек."""
+    t = today().isoformat()
+    d7 = (today() - timedelta(days=6)).isoformat()
+    d30 = (today() - timedelta(days=29)).isoformat()
+    with db.read() as c:
+        one = lambda sql, *a: c.execute(sql, a).fetchone()[0]
+        kinds = {r["kind"]: r["n"] for r in c.execute("SELECT kind, COUNT(*) AS n FROM orders GROUP BY kind")}
+        spent = lambda since=None: -_n(one(
+            "SELECT SUM(delta) FROM credit_ledger WHERE reason = 'order_charge'" + (" AND substr(created_at,1,10) >= ?" if since else ""),
+            *([since] if since else [])))
+        recent = [dict(r) for r in c.execute(
+            "SELECT o.id, o.user_id, o.kind, o.status, o.price_credits, o.used_free, o.source, o.created_at, o.prompt, "
+            "u.username, u.first_name, COALESCE(m.name, o.model, t.model) AS model, t.title AS template "
+            "FROM orders o JOIN users u ON u.tg_id = o.user_id LEFT JOIN ai_models m ON m.id = o.model_id "
+            "LEFT JOIN templates t ON t.id = o.template_id ORDER BY o.id DESC LIMIT 15")]
+        last_errors = [dict(r) for r in c.execute(
+            "SELECT created_at, source, message, error_type, user_id FROM error_log ORDER BY id DESC LIMIT 10")]
+        out = {
+            "users": {
+                "total": one("SELECT COUNT(*) FROM users"),
+                "today": one("SELECT COUNT(*) FROM users WHERE substr(created_at,1,10) = ?", t),
+                "d7": one("SELECT COUNT(*) FROM users WHERE substr(created_at,1,10) >= ?", d7),
+                "d30": one("SELECT COUNT(*) FROM users WHERE substr(created_at,1,10) >= ?", d30),
+                "active_today": one("SELECT COUNT(DISTINCT user_id) FROM daily_activity WHERE day = ?", t),
+                "active_d7": one("SELECT COUNT(DISTINCT user_id) FROM daily_activity WHERE day >= ?", d7),
+                "from_bot": one("SELECT COUNT(DISTINCT user_id) FROM orders WHERE source = 'bot'"),
+                "from_app": one("SELECT COUNT(DISTINCT user_id) FROM orders WHERE source = 'app'"),
+            },
+            "generations": {
+                "total": sum(kinds.values()),
+                "today": one("SELECT COUNT(*) FROM orders WHERE substr(created_at,1,10) = ?", t),
+                "week": one("SELECT COUNT(*) FROM orders WHERE substr(created_at,1,10) >= ?", d7),
+                "month": one("SELECT COUNT(*) FROM orders WHERE substr(created_at,1,10) >= ?", d30),
+                "photo": kinds.get("photo", 0), "video": kinds.get("video", 0), "audio": kinds.get("audio", 0),
+                "done": one("SELECT COUNT(*) FROM orders WHERE status = 'done'"),
+                "in_progress": one("SELECT COUNT(*) FROM orders WHERE status IN ('created', 'processing')"),
+            },
+            "tokens": {
+                "spent_total": spent(), "spent_today": spent(t), "spent_month": spent(d30),
+                "bought_total": _n(one("SELECT SUM(l.delta) FROM credit_ledger l JOIN payments p ON p.id = l.payment_id "
+                                       "WHERE l.reason = 'purchase' AND p.provider != 'test'")),
+                "balance_total": _n(one("SELECT SUM(balance) FROM users")),
+                "refunded_total": _n(one("SELECT SUM(delta) FROM credit_ledger WHERE reason = 'order_refund'")),
+            },
+            "errors": {
+                "generation_total": one("SELECT COUNT(*) FROM orders WHERE status = 'failed'"),
+                "generation_today": one("SELECT COUNT(*) FROM orders WHERE status = 'failed' AND substr(created_at,1,10) = ?", t),
+                "api_total": one("SELECT COUNT(*) FROM error_log"),
+                "api_today": one("SELECT COUNT(*) FROM error_log WHERE substr(created_at,1,10) = ?", t),
+                "last": last_errors,
+            },
+            "recent": recent,
+        }
+    for r in out["recent"]:
+        r["user"] = f"@{r['username']}" if r["username"] else (r["first_name"] or f"ID {r['user_id']}")
+        r["action"] = {"photo": "Изображение", "video": "Видео", "audio": "Аудио"}.get(r["kind"], r["kind"])
+        r["where"] = "Бот" if r["source"] == "bot" else "Приложение"
+        r["cost"] = 0 if r["used_free"] else r["price_credits"]
+    return out

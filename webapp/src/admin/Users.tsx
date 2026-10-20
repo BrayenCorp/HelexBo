@@ -10,7 +10,7 @@ import { ExportButton } from "./parts";
 import { DataTable, Pager } from "./table";
 import type { Col } from "./table";
 
-interface UserRow { tg_id: number; name: string; username: string | null; created_at: string; last_seen_at: string | null; tariff: string; balance: number; spent_stars: number; spent_credits: number; generations: number; photos: number; videos: number; audios: number; via_bot: number; source_label: string; status: string }
+interface UserRow { tg_id: number; name: string; username: string | null; created_at: string; last_seen_at: string | null; tariff: string; balance: number; spent_stars: number; spent_credits: number; generations: number; photos: number; videos: number; audios: number; via_bot: number; signup_from: string; source_label: string; status: string }
 interface UserPage { items: UserRow[]; total: number; page: number; size: number }
 
 const FILTERS: [string, string][] = [["all", "Все"], ["new", "Новые"], ["active", "Активные"], ["inactive", "Неактивные"], ["pro", "PRO"], ["free", "Бесплатные"], ["paying", "Платящие"], ["nonpaying", "Неплатящие"], ["top_active", "Самые активные"], ["top_spenders", "Самые дорогие"], ["blocked", "Заблокированные"]];
@@ -20,25 +20,26 @@ export function UsersList() {
   const [text, setText] = useState("");
   const [flt, setFlt] = useState("all");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: "created_at", desc: true });
   const qs = useDebounced(text.trim(), 300);
-  const path = `users?q=${encodeURIComponent(qs)}&flt=${flt}&page=${page}&size=25`;
+  const path = `users?q=${encodeURIComponent(qs)}&flt=${flt}&page=${page}&size=25&sort=${sort.key}&desc=${sort.desc}`;
   const q = useLoad(() => api.admin.get<UserPage>(path), [path]);
   const cols: Col<UserRow>[] = [
     { key: "tg_id", title: "ID" },
     { key: "name", title: "Имя", render: (u) => <b>{u.name}</b> },
     { key: "username", title: "Username", render: (u) => (u.username ? `@${u.username}` : "—") },
-    { key: "created_at", title: "Регистрация", render: (u) => fmtShort(u.created_at) },
-    { key: "last_seen_at", title: "Последняя активность", render: (u) => fmtTime(u.last_seen_at) },
+    { key: "created_at", title: "Регистрация", sortable: true, render: (u) => fmtShort(u.created_at) },
+    { key: "last_seen_at", title: "Последняя активность", sortable: true, render: (u) => fmtTime(u.last_seen_at) },
     { key: "tariff", title: "Тариф", render: (u) => <span className={`tag ${u.tariff === "PRO" ? "dark" : ""}`}>{u.tariff}</span> },
-    { key: "balance", title: "Баланс", num: true, render: (u) => nf(u.balance) },
+    { key: "balance", title: "Баланс", num: true, sortable: true, render: (u) => nf(u.balance) },
     { key: "spent_stars", title: "Потрачено, ⭐", num: true, render: (u) => nf(u.spent_stars) },
-    { key: "spent_credits", title: "Потрачено токенов", num: true, render: (u) => nf(u.spent_credits) },
-    { key: "generations", title: "Генераций", num: true, render: (u) => nf(u.generations) },
+    { key: "spent_credits", title: "Потрачено токенов", num: true, sortable: true, render: (u) => nf(u.spent_credits) },
+    { key: "generations", title: "Генераций", num: true, sortable: true, render: (u) => nf(u.generations) },
     { key: "photos", title: "Фото", num: true, render: (u) => nf(u.photos) },
     { key: "videos", title: "Видео", num: true, render: (u) => nf(u.videos) },
     { key: "audios", title: "Аудио", num: true, render: (u) => nf(u.audios) },
-    { key: "via_bot", title: "Через бота", num: true, render: (u) => nf(u.via_bot) },
-    { key: "source_label", title: "Источник" },
+    { key: "signup_from", title: "Откуда пришёл" },
+    { key: "source_label", title: "Источник перехода" },
     { key: "status", title: "Статус", render: (u) => <span className={`status ${u.status === "blocked" ? "failed" : ""}`}>{u.status === "blocked" ? "Заблокирован" : "Активен"}</span> },
   ];
   return (
@@ -51,7 +52,9 @@ export function UsersList() {
       {q.error && <ErrorBox message={q.error} onRetry={q.reload} />}
       {q.loading && !q.data ? <Loading /> : (
         <>
-          <DataTable cols={cols} rows={q.data?.items ?? []} onRow={(u) => nav.go({ name: "admin", page: "user", id: String(u.tg_id) })} empty="Пользователи не найдены" />
+          <DataTable cols={cols} rows={q.data?.items ?? []} onRow={(u) => nav.go({ name: "admin", page: "user", id: String(u.tg_id) })}
+            empty={qs || flt !== "all" ? "Никого не нашли — измените запрос или фильтр" : "Пользователей пока нет"}
+            sort={sort} onSort={(key) => { setSort((s) => ({ key, desc: s.key === key ? !s.desc : true })); setPage(1); }} />
           <Pager page={page} size={25} total={q.data?.total ?? 0} onPage={setPage} />
         </>
       )}

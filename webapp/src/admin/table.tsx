@@ -1,13 +1,19 @@
 import type { ReactNode } from "react";
 import { Icon } from "../icons";
 
-export interface Col<T> { key: string; title: string; render?: (r: T) => ReactNode; num?: boolean; wrap?: boolean }
+export interface Col<T> { key: string; title: string; render?: (r: T) => ReactNode; num?: boolean; wrap?: boolean; sortable?: boolean }
 
-export function DataTable<T extends object>({ cols, rows, onRow, empty = "Нет данных" }: { cols: Col<T>[]; rows: T[]; onRow?: (r: T) => void; empty?: string }) {
+export function DataTable<T extends object>({ cols, rows, onRow, empty = "Нет данных", sort, onSort }: { cols: Col<T>[]; rows: T[]; onRow?: (r: T) => void; empty?: string; sort?: { key: string; desc: boolean }; onSort?: (key: string) => void }) {
   return (
     <div className="table-wrap">
       <table className="tbl">
-        <thead><tr>{cols.map((c) => <th key={c.key} className={c.num ? "num" : ""}>{c.title}</th>)}</tr></thead>
+        <thead><tr>{cols.map((c) => (
+          <th key={c.key} className={`${c.num ? "num" : ""} ${c.sortable && onSort ? "sortable" : ""}`}
+            onClick={c.sortable && onSort ? () => onSort(c.key) : undefined}
+            aria-sort={sort?.key === c.key ? (sort.desc ? "descending" : "ascending") : undefined}>
+            {c.title}{sort?.key === c.key && <span className="sort-mark">{sort.desc ? "↓" : "↑"}</span>}
+          </th>
+        ))}</tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className={onRow ? "click" : ""} onClick={() => onRow?.(r)}>

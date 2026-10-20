@@ -29,8 +29,7 @@ MARKETING_TAGS = [("products", "ТОВАРЫ"), ("ads", "РЕКЛАМА"), ("soc
 AVATAR_TAGS = [("portrait", "Портрет"), ("fashion", "Мода"), ("travel", "Путешествия"), ("business", "Бизнес"), ("lifestyle", "Образ жизни"),
                ("social", "Социальные сети"), ("ads", "Реклама"), ("cinema", "Кинематографические сцены")]
 
-IDEA_TAGS = [("photo", "ФОТО"), ("video", "ВИДЕО"), ("audio", "АУДИО"), ("portrait", "ПОРТРЕТ"), ("fashion", "МОДА"), ("couples", "ПАРЫ"),
-             ("family", "СЕМЬЯ"), ("kids", "ДЕТИ"), ("lifestyle", "ОБРАЗ ЖИЗНИ"), ("cinema", "КИНО"), ("marketing", "МАРКЕТИНГ"), ("other", "ДРУГОЕ")]
+from .showcase import CATEGORIES as IDEA_TAGS  # категории витрины живут в app/showcase.py
 
 SECTION_TAGS = {
     "idea": IDEA_TAGS,

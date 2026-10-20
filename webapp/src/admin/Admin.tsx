@@ -1,11 +1,10 @@
 import { Analytics } from "./Analytics";
 import { CategoriesList, CategoryEditor, PackageEditor } from "./Catalogue";
 import { ContentAdmin } from "./Content";
-import { ShowcaseEditor, ShowcaseList } from "./Showcase";
 import { Dashboard } from "./Dashboard";
 import { Errors, Providers, SystemPage } from "./Dev";
 import { Activity, Generations, Payments } from "./Lists";
-import { Marketing, Referrals, Revenue, Subscriptions, TokensAdmin } from "./Money";
+import { Marketing, Referrals, Revenue, Subscriptions, TokensAdmin, Transactions } from "./Money";
 import { SettingsAdmin } from "./SettingsAdmin";
 import { TemplateEditor, TemplatesList } from "./Templates";
 import { UserProfile, UsersList } from "./Users";
@@ -27,14 +26,13 @@ export function Admin({ page, id }: { page?: string; id?: string }) {
     case "user": body = <UserProfile id={id ?? ""} />; break;
     case "activity": body = <Activity />; break;
     case "generations": body = <Generations />; break;
-    case "showcase": body = <ShowcaseList />; break;
-    case "showcase-new": body = <ShowcaseEditor />; break;
     case "content": body = <ContentAdmin />; break;
     case "categories": body = <CategoriesList />; break;
     case "category": body = <CategoryEditor id={id ?? "new"} />; break;
     case "templates": body = <TemplatesList />; break;
     case "template": body = <TemplateEditor id={id ?? "new"} />; break;
     case "trends": body = <TemplatesList trend />; break;
+    case "transactions": body = <Transactions />; break;
     case "payments": body = <Payments />; break;
     case "revenue": body = <Revenue />; break;
     case "tokens": body = <TokensAdmin />; break;

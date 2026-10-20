@@ -18,7 +18,8 @@ $old = @(
     "webapp\src\pages\Welcome.tsx",
     "webapp\src\styles.css",
     "webapp\src\pages\Settings.tsx",
-    "webapp\src\pages\Payments.tsx"
+    "webapp\src\pages\Payments.tsx",
+    "webapp\src\admin\Showcase.tsx"
 )
 foreach ($p in $old) {
     if (Test-Path $p) {

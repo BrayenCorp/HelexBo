@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { Payments } from "./Lists";
 import { showToast, useApp } from "../ctx";
 import { Icon } from "../icons";
 import { fmtShort, nf, pct, usd } from "../format";
@@ -172,6 +173,24 @@ export function Marketing() {
         { key: "users", title: "Пользователей", num: true }, { key: "registered", title: "Вошли", num: true }, { key: "generated", title: "Создали", num: true }, { key: "paying", title: "Платящих", num: true },
         { key: "revenue", title: "Выручка, ⭐", num: true, render: (x) => nf(x.revenue) }, { key: "conversion", title: "Конверсия", num: true, render: (x) => pct(x.conversion) },
       ]} />
+    </>
+  );
+}
+
+
+/** Транзакции: пополнения и операции с токенами в одном месте. */
+export function Transactions() {
+  const [tab, setTab] = useState<"payments" | "tokens" | "revenue">("payments");
+  return (
+    <>
+      <div className="tabs-line">
+        <button className={tab === "payments" ? "on" : ""} onClick={() => setTab("payments")}>Пополнения</button>
+        <button className={tab === "tokens" ? "on" : ""} onClick={() => setTab("tokens")}>Токены</button>
+        <button className={tab === "revenue" ? "on" : ""} onClick={() => setTab("revenue")}>Выручка</button>
+      </div>
+      {tab === "payments" && <Payments />}
+      {tab === "tokens" && <TokensAdmin />}
+      {tab === "revenue" && <Revenue />}
     </>
   );
 }

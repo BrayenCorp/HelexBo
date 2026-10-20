@@ -94,11 +94,11 @@ export function Price({ credits }: { credits: number }) {
 /** Карточка элемента каталога (эффект, тренд, фотосессия, маркетинг). */
 export function CatalogTile({ item, onOpen }: { item: CatalogItem; onOpen: () => void }) {
   const photos = usePreviews();
-  const cover = item.preview_url || (item.kind === "video" ? undefined : pickPreview(photos, item.id));
+  const cover = item.preview_url || pickPreview(photos, item.id);
   return (
     <button className="tile" onClick={onOpen}>
-      <Media url={cover} kind={item.preview_url ? item.preview_kind : "image"} icon={item.kind === "video" ? "film" : "image"} ratio={item.kind === "video" ? "wd" : ""} />
-      <span className="tile-flags">{item.kind === "video" && <span className="pf-badge">Видео</span>}{item.is_popular && <span className="pf-badge w">Популярно</span>}</span>
+      <Media url={cover} kind={item.preview_url ? item.preview_kind : "image"} icon={item.kind === "video" ? "film" : "image"} />
+      <span className="tile-flags">{item.kind === "video" ? <span className="pf-badge">Видео</span> : item.is_popular ? <span className="pf-badge w">Популярно</span> : null}</span>
       <span className="tile-body"><b>{item.title}</b>{item.description && <span>{item.description}</span>}<Price credits={item.price_credits} /></span>
     </button>
   );
@@ -106,10 +106,10 @@ export function CatalogTile({ item, onOpen }: { item: CatalogItem; onOpen: () =>
 
 export function ModelTile({ m, selected, onPick }: { m: AiModel; selected?: boolean; onPick: () => void }) {
   const photos = usePreviews();
-  const cover = m.image_url || (m.kind === "photo" ? pickPreview(photos, 1000 + m.id) : undefined);
+  const cover = m.image_url || pickPreview(photos, 1000 + m.id);
   return (
     <button className={`tile ${selected ? "on" : ""}`} onClick={onPick}>
-      <Media url={cover} icon={m.kind === "video" ? "film" : m.kind === "audio" ? "audio" : "image"} ratio={m.kind === "photo" ? "" : "wd"} />
+      <Media url={cover} icon={m.kind === "video" ? "film" : m.kind === "audio" ? "audio" : "image"} ratio="wd" />
       <span className="tile-flags">{m.is_new && <span className="pf-badge w">Новое</span>}</span>
       <span className="tile-body"><b>{m.name}</b><span>{m.description}</span><Price credits={m.price_credits} /></span>
     </button>

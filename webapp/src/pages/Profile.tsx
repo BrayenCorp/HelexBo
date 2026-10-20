@@ -1,111 +1,152 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { useApp, showToast } from "../ctx";
-import { tokensText } from "../format";
+import { fmtDate, nf, tokensText } from "../format";
 import { Icon } from "../icons";
-import type { IconName } from "../icons";
-import { Back, Dropdown, Hdr, Sec } from "../pf";
+import { Back, Dropdown, Hdr } from "../pf";
 import { openExternal, tgPhoto } from "../telegram";
-import type { Prefs, Route } from "../types";
+import type { Prefs } from "../types";
 import { Avatar, Modal, Toggle, useLoad } from "../ui";
 
-const INTERESTS: [string, string][] = [["photo", "Фото"], ["video", "Видео"], ["avatars", "Аватары"], ["social", "Контент для соцсетей"], ["ads", "Реклама"], ["other", "Другое"]];
+export const APP_VERSION = "1.0";
 
+/** Профиль: кто вы, сколько создали и сколько токенов. Всё техническое — в настройках. */
 export function Profile() {
   const { me, nav } = useApp();
   const q = useLoad(() => api.profile(), [me.balance]);
   const p = q.data;
-  const row = (icon: IconName, title: string, text: string, to: Route) => (
-    <button className="row-card" onClick={() => nav.go(to)}><span className="rc-ic"><Icon name={icon} size={20} /></span><span className="grow"><b>{title}</b><span>{text}</span></span><Icon name="chevron" size={18} /></button>
-  );
+  const sum = useLoad(() => api.tokens(), [me.balance]);
   return (
     <>
       <Hdr title="Профиль" />
-      <div className="row-card" style={{ cursor: "default" }}>
-        <Avatar name={me.first_name} photo={tgPhoto} size={56} />
-        <span className="grow"><b style={{ fontSize: 18 }}>{me.first_name ?? "Пользователь"}</b><span>{me.username ? `@${me.username}` : "Telegram"}</span></span>
+      <div className="prof-card">
+        <Avatar name={me.first_name} photo={tgPhoto} size={64} />
+        <div className="prof-who">
+          <b>{me.first_name ?? "Пользователь"}</b>
+          <span>{me.username ? `@${me.username}` : "Telegram"}</span>
+        </div>
+        <button className="btn outline" onClick={() => nav.go({ name: "settings" })}><Icon name="settings" size={17} />Настройки</button>
       </div>
+
       <div className="kv">
-        <div><b>{p?.generations ?? "—"}</b><span>Работ создано</span></div>
-        <div><b>{tokensText(me.balance).split(" ")[0]}</b><span>Токенов на балансе</span></div>
+        <div><b>{nf(me.balance)}</b><span>Токенов на балансе</span></div>
+        <div><b>{nf(p?.generations ?? 0)}</b><span>Работ создано</span></div>
+        <div><b>{nf(sum.data?.spent ?? 0)}</b><span>Токенов потрачено</span></div>
+        <div><b>{p ? fmtDate(me.created_at ?? null) : "—"}</b><span>С нами с</span></div>
       </div>
+
       <div className="pf-grid wide" style={{ gap: 10 }}>
-        {row("settings", "Настройки", "Язык, модель по умолчанию, уведомления", { name: "settings" })}
-        {row("shield", "Безопасность", "Ваши данные и удаление файлов", { name: "security" })}
-        {row("coin", "Баланс", "Токены и пополнение", { name: "balance" })}
-        {row("card", "История платежей", "Все пополнения", { name: "payments" })}
-        {row("plug", "Интеграции", "ChatGPT, Claude, Cursor и другие через MCP", { name: "integrations" })}
-        {p?.support_url && <button className="row-card" onClick={() => openExternal(p.support_url)}><span className="rc-ic"><Icon name="help" size={20} /></span><span className="grow"><b>Поддержка</b><span>Написать нам</span></span><Icon name="chevron" size={18} /></button>}
-        {me.roles.length > 0 && row("chart", "Админ-центр", "Управление платформой", { name: "admin" })}
+        <button className="row-card" onClick={() => nav.go({ name: "balance" })}>
+          <span className="rc-ic"><Icon name="coin" size={20} /></span><span className="grow"><b>Баланс и пополнение</b><span>Токены, пакеты, история</span></span><Icon name="chevron" size={18} />
+        </button>
+        <button className="row-card" onClick={() => nav.go({ name: "history" })}>
+          <span className="rc-ic"><Icon name="clock" size={20} /></span><span className="grow"><b>Мои генерации</b><span>Все ваши работы</span></span><Icon name="chevron" size={18} />
+        </button>
+        {p?.support_url && (
+          <button className="row-card" onClick={() => openExternal(p.support_url)}>
+            <span className="rc-ic"><Icon name="help" size={20} /></span><span className="grow"><b>Поддержка</b><span>Написать нам</span></span><Icon name="chevron" size={18} />
+          </button>
+        )}
+        {me.roles.length > 0 && (
+          <button className="row-card" onClick={() => nav.go({ name: "admin" })}>
+            <span className="rc-ic"><Icon name="chart" size={20} /></span><span className="grow"><b>Админ-центр</b><span>Управление проектом</span></span><Icon name="chevron" size={18} />
+          </button>
+        )}
       </div>
     </>
   );
 }
 
+/** Настройки: только то, что нужно обычному человеку. */
 export function Settings() {
   const { me, nav, refreshMe } = useApp();
-  const models = useLoad(() => api.models("photo"), []);
   const [prefs, setPrefs] = useState<Prefs>(me.prefs);
-  async function save(patch: Partial<Prefs> & { clear_model?: boolean }) {
-    const prev = prefs;
-    setPrefs({ ...prefs, ...patch } as Prefs);
-    try { setPrefs(await api.savePrefs(patch)); refreshMe(); } catch (e) { setPrefs(prev); showToast(e instanceof ApiError ? e.message : "Не удалось сохранить"); }
-  }
-  return (
-    <>
-      <Back onClick={nav.back} />
-      <Hdr title="Настройки" />
-      <div className="panel">
-        <div className="fld"><span className="lbl">Язык</span>
-          <Dropdown ariaLabel="Язык" value="ru" options={[{ id: "ru", label: "Русский" }]} onChange={() => undefined} disabled />
-          <span className="hint">Другие языки появятся позже.</span></div>
-        <div className="fld"><span className="lbl">Модель по умолчанию</span>
-          <Dropdown ariaLabel="Модель по умолчанию" value={prefs.default_model_id ? String(prefs.default_model_id) : ""}
-            options={[{ id: "", label: "Выбирать автоматически" }, ...(models.data ?? []).map((m) => ({ id: String(m.id), label: m.name, note: m.description.slice(0, 64), right: `${m.price_credits}` }))]}
-            onChange={(v) => save(v ? { default_model_id: Number(v) } : { clear_model: true, default_model_id: null })} /></div>
-        <div className="fld-row">
-          <div className="fld"><span className="lbl">Соотношение сторон</span>
-            <Dropdown ariaLabel="Соотношение сторон" value={prefs.ratio} options={["1:1", "3:4", "4:3", "9:16", "16:9", "21:9"].map((r) => ({ id: r, label: r }))} onChange={(v) => save({ ratio: v })} /></div>
-          <div className="fld"><span className="lbl">Качество</span>
-            <Dropdown ariaLabel="Качество" value={prefs.quality} options={[{ id: "standard", label: "Стандарт" }, { id: "high", label: "Высокое" }]} onChange={(v) => save({ quality: v })} /></div>
-        </div>
-        <div className="fld"><span className="lbl">Мои интересы</span>
-          <div className="pill-row">{INTERESTS.map(([k, l]) => <button key={k} className={`pill ${prefs.interests.includes(k) ? "on" : ""}`} onClick={() => save({ interests: prefs.interests.includes(k) ? prefs.interests.filter((x) => x !== k) : [...prefs.interests, k] })}>{l}</button>)}</div></div>
-        <div className="sw-row"><div><b>Присылать результат в чат</b><span className="hint">Готовые работы приходят в чат с ботом.</span></div><Toggle checked={prefs.notify} onChange={(v) => save({ notify: v })} label="Уведомления в чат" /></div>
-        <div className="sw-row"><div><b>Скачивать автоматически</b><span className="hint">Готовый результат сразу сохраняется на устройство.</span></div><Toggle checked={prefs.autodownload} onChange={(v) => save({ autodownload: v })} label="Автоскачивание" /></div>
-      </div>
-    </>
-  );
-}
-
-export function Security() {
-  const { nav, refreshMe } = useApp();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const sum = useLoad(() => api.tokens(), [me.balance]);
+  const profile = useLoad(() => api.profile(), []);
+
+  async function save(patch: Partial<Prefs>) {
+    const prev = prefs;
+    setPrefs({ ...prefs, ...patch } as Prefs);
+    try { setPrefs(await api.savePrefs(patch)); refreshMe(); }
+    catch (e) { setPrefs(prev); showToast(e instanceof ApiError ? e.message : "Не удалось сохранить"); }
+  }
   async function wipe() {
     setBusy(true);
     try {
       const r = await api.deleteMyMedia();
-      showToast(r.deleted_files ? "Ваши работы, фото и аватары удалены" : "Удалять нечего");
+      showToast(r.deleted_files ? "Работы, фото и аватары удалены" : "Удалять нечего");
       setConfirm(false); refreshMe();
     } catch (e) { showToast(e instanceof ApiError ? e.message : "Не удалось удалить"); } finally { setBusy(false); }
   }
+
+  const s = sum.data;
   return (
     <>
       <Back onClick={nav.back} />
-      <Hdr title="Безопасность" text="Вход выполняется через Telegram — пароли не нужны." />
-      <Sec title="Ваши данные">
-        <div className="panel">
-          <p className="hint" style={{ fontSize: 14 }}>Загруженные фото используются только для вашей генерации и удаляются после её завершения. Фото аватаров хранятся, пока вы сами не удалите аватар.</p>
-          <p className="hint" style={{ fontSize: 14 }}>Доступ к платформе из внешних приложений (MCP) защищён личными токенами — их можно отозвать в разделе «Интеграции».</p>
-          <button className="btn outline" onClick={() => nav.go({ name: "integrations" })}><Icon name="key" size={17} />Мои токены доступа</button>
-          <button className="btn outline" onClick={() => setConfirm(true)}><Icon name="trash" size={17} />Удалить мои работы, фото и аватары</button>
+      <Hdr title="Настройки" />
+
+      <section className="set-group">
+        <h2 className="set-title">Аккаунт</h2>
+        <div className="set-rows">
+          <div className="set-row"><span>Имя</span><b>{me.first_name ?? "—"}</b></div>
+          <div className="set-row"><span>Username</span><b>{me.username ? `@${me.username}` : "—"}</b></div>
+          <div className="set-row"><span>Вход</span><b>Telegram</b></div>
+          <div className="set-row"><span>ID</span><b>{me.id}</b></div>
         </div>
-      </Sec>
+      </section>
+
+      <section className="set-group">
+        <h2 className="set-title">Язык</h2>
+        <Dropdown ariaLabel="Язык" value="ru" options={[{ id: "ru", label: "Русский" }]} onChange={() => undefined} disabled />
+        <span className="hint">Другие языки появятся позже.</span>
+      </section>
+
+      <section className="set-group">
+        <h2 className="set-title">Баланс</h2>
+        <div className="set-rows">
+          <div className="set-row"><span>Сейчас на счету</span><b>{tokensText(me.balance)}</b></div>
+          <div className="set-row"><span>Куплено</span><b>{nf(s?.bought ?? 0)}</b></div>
+          <div className="set-row"><span>Потрачено</span><b>{nf(s?.spent ?? 0)}</b></div>
+          <div className="set-row"><span>Возвращено за ошибки</span><b>{nf(s?.refunded ?? 0)}</b></div>
+        </div>
+        <div className="comp-row">
+          <button className="btn orange" onClick={() => nav.go({ name: "balance" })}>Пополнить</button>
+          <button className="btn outline" onClick={() => nav.go({ name: "payments" })}>История пополнений</button>
+        </div>
+      </section>
+
+      <section className="set-group">
+        <h2 className="set-title">Уведомления</h2>
+        <div className="sw-row">
+          <div><b>Присылать готовые работы в чат</b><span className="hint">Результат придёт в чат с ботом — оттуда его удобно сохранить.</span></div>
+          <Toggle checked={prefs.notify} onChange={(v) => save({ notify: v })} label="Уведомления о готовности" />
+        </div>
+      </section>
+
+      <section className="set-group">
+        <h2 className="set-title">Безопасность</h2>
+        <p className="hint">Вход только через Telegram — пароль не нужен. Загруженные фото удаляются сразу после генерации; фото аватаров хранятся, пока вы их не удалите.</p>
+        <button className="btn outline" style={{ alignSelf: "flex-start" }} onClick={() => setConfirm(true)}>
+          <Icon name="trash" size={17} />Удалить мои работы и фото
+        </button>
+      </section>
+
+      <section className="set-group">
+        <h2 className="set-title">О приложении</h2>
+        <div className="set-rows">
+          <div className="set-row"><span>Версия</span><b>Nolla AI {APP_VERSION}</b></div>
+          {profile.data?.support_url && <div className="set-row"><span>Поддержка</span><button className="link" onClick={() => openExternal(profile.data!.support_url)}>Написать</button></div>}
+          <div className="set-row"><span>Условия использования</span><b className="muted">В разработке</b></div>
+          <div className="set-row"><span>Политика конфиденциальности</span><b className="muted">В разработке</b></div>
+        </div>
+      </section>
+
       {confirm && (
         <Modal onClose={() => setConfirm(false)}>
           <h2>Удалить работы и фото?</h2>
-          <p className="muted">Все готовые работы, загруженные фото и аватары будут удалены без возможности восстановления. Баланс и история платежей сохранятся.</p>
+          <p className="muted">Все готовые работы, загруженные фото и аватары будут удалены без возможности восстановления. Баланс и история пополнений сохранятся.</p>
           <button className="btn orange block" disabled={busy} onClick={wipe}>{busy ? "Удаляем…" : "Удалить"}</button>
           <button className="btn outline block" onClick={() => setConfirm(false)}>Отмена</button>
         </Modal>

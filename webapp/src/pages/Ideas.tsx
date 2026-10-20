@@ -21,9 +21,8 @@ export function Ideas() {
 
   const card = (it: CatalogItem) => (
     <div key={it.id} className="idea">
-      <Media url={it.preview_url || (it.kind === "video" ? undefined : pickPreview(photos, it.id))}
-        kind={it.preview_url ? it.preview_kind : "image"} icon={it.kind === "video" ? "film" : it.kind === "audio" ? "audio" : "image"}
-        ratio={it.kind === "video" ? "wd" : ""} />
+      <Media url={it.preview_url || pickPreview(photos, it.id)} kind={it.preview_url ? it.preview_kind : "image"}
+        icon={it.kind === "video" ? "film" : it.kind === "audio" ? "audio" : "image"} />
       <div className="idea-body">
         <div className="idea-tags">
           <span className="pf-badge">{KIND_LABEL[it.kind] ?? it.kind}</span>

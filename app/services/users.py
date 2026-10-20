@@ -78,6 +78,7 @@ def profile(db: Database, tg_id: int) -> dict:
         "welcomed": bool(user.get("welcomed", 0)),
         "status": user.get("status", "active"),
         "photo_url": user.get("photo_url"),
+        "created_at": user.get("created_at"),
         "free": orders.free_status(db, tg_id),
     }
 

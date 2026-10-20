@@ -16,6 +16,11 @@ G_PHOTO = GENS % " AND o.kind = 'photo'"
 G_VIDEO = GENS % " AND o.kind = 'video'"
 G_AUDIO = GENS % " AND o.kind = 'audio'"
 VIA_BOT = "(SELECT COUNT(*) FROM orders o WHERE o.user_id = u.tg_id AND o.source = 'bot')"
+# Откуда человек пришёл: запуск бота и открытие Mini App пишутся в events
+FROM_BOT = "(SELECT COUNT(*) FROM events e WHERE e.user_id = u.tg_id AND e.name = 'bot_started')"
+FROM_APP = "(SELECT COUNT(*) FROM events e WHERE e.user_id = u.tg_id AND e.name = 'miniapp_opened')"
+SORTS = {"created_at": "u.created_at", "last_seen_at": "u.last_seen_at", "generations": "generations",
+         "balance": "u.balance", "spent_credits": "spent_credits", "name": "u.first_name"}
 
 
 def display_name(u: dict) -> str:
@@ -26,7 +31,7 @@ def _like_variants(q: str) -> list[str]:
     return list({q, q.lower(), q.upper(), q.capitalize(), q.title()})  # LIKE в SQLite не различает регистр только для латиницы
 
 
-def users_list(db: Database, *, q: str = "", flt: str = "all", page: int = 1, size: int = 25) -> dict:
+def users_list(db: Database, *, q: str = "", flt: str = "all", page: int = 1, size: int = 25, sort: str = "", desc: bool = True) -> dict:
     if flt not in FILTERS:
         raise DomainError("Неизвестный фильтр")
     size = max(1, min(size, 100))
@@ -59,12 +64,17 @@ def users_list(db: Database, *, q: str = "", flt: str = "all", page: int = 1, si
         where.append(f"{SPENT} > 0"); order = "spent_stars DESC"
     elif flt == "blocked":
         where.append("u.status = 'blocked'")
+    if sort:
+        if sort not in SORTS:
+            raise DomainError("Неизвестная сортировка")
+        order = f"{SORTS[sort]} {'DESC' if desc else 'ASC'}"
     cond = " AND ".join(where)
     sql = (
         "SELECT u.tg_id, u.username, u.first_name, u.last_name, u.created_at, u.last_seen_at, u.is_pro, u.balance, u.source, u.campaign, u.status, "
         f"{SPENT} AS spent_stars, "
         "(SELECT COALESCE(-SUM(l.delta),0) FROM credit_ledger l WHERE l.user_id = u.tg_id AND l.reason = 'order_charge') AS spent_credits, "
-        f"{G_ALL} AS generations, {G_PHOTO} AS photos, {G_VIDEO} AS videos, {G_AUDIO} AS audios, {VIA_BOT} AS via_bot "
+        f"{G_ALL} AS generations, {G_PHOTO} AS photos, {G_VIDEO} AS videos, {G_AUDIO} AS audios, {VIA_BOT} AS via_bot, "
+        f"{FROM_BOT} AS from_bot, {FROM_APP} AS from_app "
         f"FROM users u WHERE {cond} ORDER BY {order} LIMIT ? OFFSET ?"
     )
     with db.read() as c:
@@ -74,6 +84,7 @@ def users_list(db: Database, *, q: str = "", flt: str = "all", page: int = 1, si
         r["tariff"] = "PRO" if r["is_pro"] else "Бесплатный"
         r["source_label"] = sources.label(r["source"])
         r["name"] = display_name(r)
+        r["signup_from"] = "Бот" if r["from_bot"] else ("Mini App" if r["from_app"] else "—")
     return {"items": rows, "total": total, "page": page, "size": size}
 
 

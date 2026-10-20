@@ -19,28 +19,15 @@ export const pq = (p: Period): string => `period=${p.key}${p.key === "custom" ? 
 
 interface Item { page: string; title: string; icon: IconName; roles: ("owner" | "developer")[]; period?: boolean }
 export const ITEMS: Item[] = [
-  { page: "home", title: "Главная", icon: "home", roles: ["owner"], period: true },
-  { page: "analytics", title: "Аналитика", icon: "chart", roles: ["owner"], period: true },
+  { page: "home", title: "Дашборд", icon: "chart", roles: ["owner", "developer"], period: true },
   { page: "users", title: "Пользователи", icon: "users", roles: ["owner"] },
-  { page: "activity", title: "Активность пользователей", icon: "clock", roles: ["owner"], period: true },
   { page: "generations", title: "Генерации", icon: "sparkle", roles: ["owner", "developer"] },
-  { page: "showcase", title: "Витрина", icon: "stack", roles: ["owner"] },
-  { page: "content", title: "Контент", icon: "layers", roles: ["owner"] },
-  { page: "categories", title: "Категории", icon: "grid", roles: ["owner"] },
-  { page: "templates", title: "Шаблоны", icon: "image", roles: ["owner"] },
-  { page: "trends", title: "Тренды", icon: "flame", roles: ["owner"] },
-  { page: "payments", title: "Платежи", icon: "card", roles: ["owner"] },
-  { page: "revenue", title: "Выручка", icon: "coin", roles: ["owner"], period: true },
-  { page: "tokens", title: "Токены", icon: "diamond", roles: ["owner"], period: true },
-  { page: "subscriptions", title: "Подписки", icon: "crown", roles: ["owner"], period: true },
-  { page: "referrals", title: "Реферальная система", icon: "share", roles: ["owner"] },
-  { page: "marketing", title: "Маркетинг", icon: "tag", roles: ["owner"] },
-  { page: "errors", title: "Ошибки и журналы", icon: "bug", roles: ["owner", "developer"] },
-  { page: "providers", title: "AI-провайдеры", icon: "bolt", roles: ["owner", "developer"], period: true },
-  { page: "system", title: "Система", icon: "shield", roles: ["owner", "developer"] },
+  { page: "transactions", title: "Транзакции", icon: "card", roles: ["owner"] },
+  { page: "errors", title: "Ошибки", icon: "bug", roles: ["owner", "developer"] },
   { page: "settings", title: "Настройки", icon: "settings", roles: ["owner"] },
+  { page: "system", title: "Система", icon: "shield", roles: ["owner", "developer"] },
 ];
-const PARENT: Record<string, string> = { user: "users", template: "templates", category: "categories", package: "tokens", "showcase-new": "showcase" };
+const PARENT: Record<string, string> = { user: "users", template: "templates", category: "categories", package: "settings", analytics: "home", activity: "home", payments: "transactions", tokens: "transactions", revenue: "transactions", subscriptions: "transactions", referrals: "transactions", marketing: "users", content: "settings", templates: "settings", trends: "settings", categories: "settings", providers: "system" };
 
 export function PeriodBar() {
   const { period, setPeriod } = usePeriod();
@@ -74,7 +61,7 @@ export function AdminShell({ page, children }: { page: string; children: ReactNo
       <div className="adm">
         <div className={`adm-scrim ${open ? "open" : ""}`} onClick={() => setOpen(false)} />
         <aside className={`adm-side ${open ? "open" : ""}`}>
-          <div className="adm-brand"><Logo /><small>Центр аналитики и управления</small></div>
+          <div className="adm-brand"><Logo /><small>Управление проектом</small></div>
           <nav className="adm-nav" aria-label="Разделы админки">
             {items.map((i) => (
               <button key={i.page} className={`adm-link ${current.page === i.page ? "on" : ""}`} onClick={() => go(i.page)}><Icon name={i.icon} size={18} />{i.title}</button>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useApp } from "../ctx";
 import { Icon } from "../icons";
-import type { Route, SearchGroup } from "../types";
+import type { Kind, Route, SearchGroup } from "../types";
 import { useDebounced } from "../ui";
 
 const GO: Record<string, (id: number, slug?: string) => Route> = {
@@ -90,5 +90,39 @@ export function Onboarding() {
         )}
       </div>
     </div>
+  );
+}
+
+
+const CREATE_OPTIONS: [string, string, string, "image" | "video" | "audio"][] = [
+  ["photo", "Фото", "Изображение по описанию или из вашего снимка", "image"],
+  ["video", "Видео", "Короткий ролик по описанию или из фото", "video"],
+  ["audio", "Аудио", "Озвучка текста выбранным голосом", "audio"],
+];
+
+/** Меню создания: на компьютере раскрывается под кнопкой «+», на телефоне — нижней панелью. */
+export function CreateMenu({ onClose, onPick, onMore }: { onClose: () => void; onPick: (kind: Kind) => void; onMore: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [onClose]);
+  return (
+    <>
+      <div className="create-scrim" onClick={onClose} />
+      <div className="create-pop" ref={box} role="dialog" aria-label="Создать">
+        <div className="create-head">Что создаём?</div>
+        {CREATE_OPTIONS.map(([kind, title, text, icon]) => (
+          <button key={kind} className="create-item" onClick={() => { onClose(); onPick(kind as Kind); }}>
+            <span className="create-ic"><Icon name={icon} size={19} /></span>
+            <span className="create-txt"><b>{title}</b><span>{text}</span></span>
+          </button>
+        ))}
+        <button className="create-more" onClick={() => { onClose(); onMore(); }}>Готовые эффекты и инструменты</button>
+      </div>
+    </>
   );
 }

@@ -13,7 +13,7 @@ from .context import AppContext
 from .db import Database, init_db
 from .runner import Runner
 from .security import AdminAccess
-from .services import orders
+from .services import orders, showcase_sync
 from .storage import Storage
 
 log = logging.getLogger("studio")
@@ -28,6 +28,7 @@ async def amain() -> None:
     from .seed import apply_welcome_default
 
     apply_welcome_default(db, settings.welcome_bonus)
+    showcase_sync.sync(db)  # витрина берётся из app/showcase.py
     storage = Storage(settings.data_dir)
     providers = ProviderRegistry(settings.ai_mode, settings.image_api_key, settings.video_api_key, settings.seedance_api_key, settings.audio_api_key, settings.demo_delay)
     runner = Runner(db, storage, providers, max_parallel=settings.max_parallel_generations, timeout=settings.generation_timeout,

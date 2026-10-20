@@ -627,3 +627,81 @@ class BotSyncTest(BaseTest):
         row = admin_users.users_list(self.db)["items"][0]
         self.assertEqual((row["generations"], row["photos"], row["audios"], row["via_bot"]), (2, 1, 1, 1))
         self.assertEqual(len(orders.list_user_orders(self.db, 1)), 2)  # обе работы в «Моих генерациях»
+
+
+class ShowcaseFromCodeTest(BaseTest):
+    """Витрина берётся из app/showcase.py: админка её не редактирует."""
+
+    def test_sync_adds_updates_and_hides(self):
+        from app import showcase
+        from app.services import showcase_sync
+        res = showcase_sync.sync(self.db)
+        self.assertEqual(res["added"], len(showcase.SHOWCASE))
+        items = catalog.list_items(self.db, "idea")
+        self.assertEqual(len(items), len(showcase.SHOWCASE))
+        self.assertEqual(items[0]["title"], "Кинематографический портрет")  # «Рекомендуем» — выше
+        self.assertTrue(items[0]["featured"])
+        self.assertEqual(showcase_sync.sync(self.db)["updated"], len(showcase.SHOWCASE))  # повтор ничего не ломает
+
+        original = list(showcase.SHOWCASE)
+        try:
+            showcase.SHOWCASE[:] = original[:2]
+            res = showcase_sync.sync(self.db)
+            self.assertEqual(res["hidden"], len(original) - 2)
+            self.assertEqual(len(catalog.list_items(self.db, "idea")), 2)
+        finally:
+            showcase.SHOWCASE[:] = original
+        showcase_sync.sync(self.db)
+        self.assertEqual(len(catalog.list_items(self.db, "idea")), len(original))
+
+    def test_card_fields_and_generation(self):
+        from app.services import showcase_sync
+        showcase_sync.sync(self.db)
+        card = catalog.get_by_slug(self.db, "idea-animate-photo")
+        self.assertEqual((card["kind"], card["price_credits"], card["tag"]), ("video", 70, "video"))
+        self.assertEqual([r["code"] for r in card["required"]], ["photo"])
+        self.add_balance(1, 200)
+        o, _ = make(self, "s1", template_id=card["id"], image_bytes=make_photo())
+        self.assertEqual(run(self, o)["status"], "done")
+
+    def test_broken_card_is_reported(self):
+        from app import showcase
+        from app.services import showcase_sync
+        original = list(showcase.SHOWCASE)
+        try:
+            showcase.SHOWCASE.append({"slug": "bad", "title": "", "description": "x", "category": "photo", "kind": "photo"})
+            with self.assertRaises(ValueError):
+                showcase_sync.sync(self.db)
+        finally:
+            showcase.SHOWCASE[:] = original
+
+
+class AdminDashboardTest(BaseTest):
+    def test_numbers_come_from_database(self):
+        from app.services import admin_users, events
+        self.add_balance(1, 300)
+        events.log(self.db, "bot_started", 1)
+        a, _ = orders.submit_generation(self.db, self.storage, user_id=1, request_id="d1", source="bot", kind="photo", prompt="кот")
+        run(self, a)
+        b, _ = orders.submit_generation(self.db, self.storage, user_id=1, request_id="d2", source="app", kind="audio", prompt="текст")
+        run(self, b)
+        d = analytics.dashboard(self.db)
+        self.assertEqual((d["users"]["total"], d["users"]["today"], d["users"]["active_today"]), (1, 1, 1))
+        self.assertEqual((d["generations"]["total"], d["generations"]["today"], d["generations"]["photo"], d["generations"]["audio"]), (2, 2, 1, 1))
+        self.assertEqual(d["tokens"]["spent_today"], d["tokens"]["spent_total"])
+        self.assertGreater(d["tokens"]["spent_total"], 0)
+        self.assertEqual(len(d["recent"]), 2)
+        self.assertEqual({r["where"] for r in d["recent"]}, {"Бот", "Приложение"})
+        self.assertTrue(all(r["user"] for r in d["recent"]))
+        rows = admin_users.users_list(self.db, sort="generations")["items"]
+        self.assertEqual(rows[0]["signup_from"], "Бот")
+        with self.assertRaises(DomainError):
+            admin_users.users_list(self.db, sort="; DROP TABLE users")
+
+    def test_empty_database_shows_zeros_not_fake_numbers(self):
+        with self.db.tx() as c:
+            c.execute("DELETE FROM users")
+        d = analytics.dashboard(self.db)
+        self.assertEqual(d["users"]["total"], 0)
+        self.assertEqual(d["generations"]["total"], 0)
+        self.assertEqual(d["recent"], [])

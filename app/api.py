@@ -163,6 +163,7 @@ def create_app(ctx: AppContext) -> FastAPI:
             "id": user["id"], "first_name": prof["first_name"], "username": prof["username"], "balance": prof["balance"], "is_pro": prof["is_pro"],
             "generations": done["photo"] + done["video"] + done["audio"], "images": done["photo"], "videos": done["video"], "audios": done["audio"], "favorites_count": len(fav["orders"]),
             "support_url": site_settings.get_all(ctx.db).get("support_url", ""), "roles": ctx.access.roles(user["id"]), "ref_link": ref_link(user["id"]),
+            "created_at": prof.get("created_at"),
         }
 
     @app.put("/api/me/settings")
@@ -527,8 +528,8 @@ def create_app(ctx: AppContext) -> FastAPI:
 
     # --- пользователи ---
     @app.get(f"{A}/users")
-    async def a_users(q: str = "", flt: str = "all", page: int = 1, size: int = 25, _: dict = Depends(owner)):
-        return admin_users.users_list(ctx.db, q=q, flt=flt, page=page, size=size)
+    async def a_users(q: str = "", flt: str = "all", page: int = 1, size: int = 25, sort: str = "", desc: bool = True, _: dict = Depends(owner)):
+        return admin_users.users_list(ctx.db, q=q, flt=flt, page=page, size=size, sort=sort, desc=desc)
 
     @app.get(f"{A}/users/{{tg_id}}")
     async def a_user(tg_id: int, _: dict = Depends(owner)):
@@ -749,6 +750,11 @@ def create_app(ctx: AppContext) -> FastAPI:
     @app.post(f"{A}/templates/{{template_id}}/move")
     async def a_template_move(template_id: int, body: MoveIn, _: dict = Depends(owner)):
         return templates.move(ctx.db, template_id, body.direction)
+
+    @app.get(f"{A}/dashboard")
+    async def a_dashboard(_: dict = Depends(staff)):
+        """Сводка главной админки: всё считается из базы, без заглушек."""
+        return analytics.dashboard(ctx.db)
 
     @app.get(f"{A}/bot-stats")
     async def a_bot_stats(period_: str = Query("30d", alias="period"), start: str | None = None, end: str | None = None, _: dict = Depends(owner)):

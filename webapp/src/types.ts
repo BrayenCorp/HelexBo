@@ -4,6 +4,7 @@ export interface Favorites { templates: number[]; orders: number[] }
 
 export interface Me {
   id: number;
+  created_at: string | null;
   first_name: string | null;
   username: string | null;
   balance: number;
@@ -241,6 +242,7 @@ export interface PaymentStart {
 
 export interface Profile {
   id: number;
+  created_at?: string | null;
   first_name: string | null;
   username: string | null;
   balance: number;
@@ -359,7 +361,6 @@ export type Route =
   | { name: "history"; filter?: HistoryFilter }
   | { name: "profile" }
   | { name: "settings" }
-  | { name: "security" }
   | { name: "balance" }
   | { name: "payments" }
   | { name: "integrations" }
