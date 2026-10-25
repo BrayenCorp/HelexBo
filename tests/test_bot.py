@@ -231,8 +231,18 @@ class BotTest(BaseTest):
         self.send("сделай 9 ракурсов этого фото")
         self.assertTrue("Пришлите фото" in self.last()["text"] or "Стоимость" in self.last()["text"])
 
+    def test_ideas_open_the_channel(self):
+        from app.services import site_settings
+        site_settings.set_value(self.db, "ideas_channel_url", "https://t.me/aabyoo")
+        self.tap("mk:ideas:0")
+        self.assertIn("💡 Открыть канал с идеями", self.labels())
+        m = self.last()["markup"]
+        urls = [getattr(b, "url", None) for row in m.inline_keyboard for b in row]
+        self.assertIn("https://t.me/aabyoo", urls)
+
     def test_ideas_are_taken_from_showcase(self):
-        from app.services import templates
+        from app.services import site_settings, templates
+        site_settings.set_value(self.db, "ideas_channel_url", "")
         templates.create(self.db, {"title": "Ночная фотосессия", "kind": "photo", "section": "idea", "tag": "portrait",
                                    "price_credits": 14, "is_published": True, "prompt": "night city portrait"})
         self.tap("mk:ideas:0")

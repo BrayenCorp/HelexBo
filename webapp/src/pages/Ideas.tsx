@@ -18,12 +18,16 @@ export function Ideas() {
   return (
     <>
       <Hdr title="Идеи" text="Нравится кадр — нажмите на него и загрузите своё фото." />
-      {tags.length > 0 && <Tabs value={tag} onChange={setTag} items={[{ id: "all", label: "Все" }, { id: "fav", label: "Избранное" }, ...tags.map((t) => ({ id: t.id, label: t.label, count: t.count }))]} />}
+      {/* «Все» и «Избранное» есть всегда — даже пока у карточек не проставлены категории. */}
+      <Tabs value={tag} onChange={setTag} items={[{ id: "all", label: "Все" }, { id: "fav", label: "Избранное", count: me.favorites.templates.length }, ...tags.map((t) => ({ id: t.id, label: t.label, count: t.count }))]} />
       <div className="fld"><input type="search" placeholder="Найти идею..." aria-label="Поиск идей" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       {list.loading && !list.data && <Skeletons n={4} />}
       {list.data && shown.length === 0 && (
-        <Empty2 title="Идей пока нет" text="Карточки добавляются в файле app/showcase.py — или загляните в «Тренды» и «Фотосессии»."
-          action={<button className="btn outline" onClick={() => nav.go({ name: "trends" })}>Открыть тренды</button>} />
+        tag === "fav"
+          ? <Empty2 title="В избранном пусто" text="Нажмите сердечко на карточке — она появится здесь."
+              action={<button className="btn outline" onClick={() => setTag("all")}>Смотреть все идеи</button>} />
+          : <Empty2 title="Идей пока нет" text="Карточки добавляются в файле app/showcase.py — или загляните в «Тренды» и «Фотосессии»."
+              action={<button className="btn outline" onClick={() => nav.go({ name: "trends" })}>Открыть тренды</button>} />
       )}
       <div className="pf-grid">{shown.map((it) => <CatalogTile key={it.id} item={it} onOpen={() => nav.go({ name: "tool", slug: it.slug })} />)}</div>
     </>

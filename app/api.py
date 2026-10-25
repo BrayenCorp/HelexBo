@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .context import AppContext
+from .version import APP_VERSION, BUILD, webapp_build, webapp_state
 from .errors import DomainError, Forbidden, InvalidInitData
 from .security import validate_init_data
 from . import catalog_data, mcp as mcp_server
@@ -784,9 +785,27 @@ def create_app(ctx: AppContext) -> FastAPI:
         data = await file.read(s.max_video_bytes + 1)
         return await asyncio.to_thread(media.save_media, ctx.storage, data, max_image=20 * 1024 * 1024, max_video=s.max_video_bytes)
 
+    @app.get("/api/version")
+    async def version():
+        """Какая сборка сейчас на сервере. Помогает понять, не открылась ли старая из кеша."""
+        state, detail = webapp_state(s.webapp_dist)
+        return {"version": APP_VERSION, "build": BUILD, "webapp_build": webapp_build(s.webapp_dist),
+                "webapp_state": state, "webapp_detail": detail}
+
     # ---------- собранный frontend ----------
     app.mount("/media", StaticFiles(directory=ctx.storage.media), name="media")
     dist = Path(s.webapp_dist)
     if dist.is_dir():
-        app.mount("/", StaticFiles(directory=dist, html=True), name="webapp")
+        class NoCacheIndex(StaticFiles):
+            """Файлы с именем-хешем кешируем надолго, а index.html — никогда:
+            иначе после обновления у людей открывается старое приложение."""
+
+            async def get_response(self, path, scope):
+                response = await super().get_response(path, scope)
+                if path in ("", ".", "index.html") or path.endswith(".html"):
+                    response.headers["Cache-Control"] = "no-store, must-revalidate"
+                    response.headers["Pragma"] = "no-cache"
+                return response
+
+        app.mount("/", NoCacheIndex(directory=dist, html=True), name="webapp")
     return app

@@ -757,8 +757,33 @@ class ReferralAndSettingsTest(BaseTest):
 
     def test_ideas_channel_setting(self):
         from app.services import site_settings
+        self.assertEqual(site_settings.get_value(self.db, "ideas_channel_url"), "https://t.me/aabyoo")
         site_settings.update(self.db, {"ideas_channel_url": "https://t.me/nolla_ideas"})
         self.assertEqual(site_settings.get_value(self.db, "ideas_channel_url"), "https://t.me/nolla_ideas")
+
+    def test_build_version_is_shared_by_bot_and_app(self):
+        """Версия сборки одна и та же в коде сервера и в Mini App — по ней видно, что загрузилось у пользователя."""
+        import pathlib
+        from app.version import APP_VERSION, BUILD
+        src = pathlib.Path("webapp/src/version.ts").read_text(encoding="utf-8")
+        self.assertIn(f'"{BUILD}"', src)
+        self.assertIn(f'"{APP_VERSION}"', src)
+        self.assertEqual(pathlib.Path("webapp/public/build.txt").read_text(encoding="utf-8").strip(), BUILD)
+
+    def test_old_webapp_build_is_reported(self):
+        """Если на сервер попала старая сборка Mini App — это видно в админке и в логах, а не угадывается."""
+        import pathlib
+        from app.version import BUILD, webapp_state
+        d = pathlib.Path(tempfile.mkdtemp())
+        self.assertEqual(webapp_state(d)[0], "missing")
+        (d / "index.html").write_text("<html></html>", encoding="utf-8")
+        self.assertEqual(webapp_state(d)[0], "stale")
+        (d / "build.txt").write_text("2000-01-01.1", encoding="utf-8")
+        state, detail = webapp_state(d)
+        self.assertEqual(state, "stale")
+        self.assertIn("npm run build", detail)
+        (d / "build.txt").write_text(BUILD + "\n", encoding="utf-8")
+        self.assertEqual(webapp_state(d)[0], "ok")
 
     def test_favorite_showcase_card(self):
         from app.services import favorites, showcase_sync

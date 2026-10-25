@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 OK, WARN, ERROR = "ok", "warn", "error"
 _bot_cache: dict = {"ts": 0.0, "value": None}
@@ -37,9 +36,10 @@ async def _bot_status(ctx) -> dict:
 async def health(ctx) -> list[dict]:
     s, db = ctx.settings, ctx.db
     out = [await _bot_status(ctx)]
-    dist = Path(s.webapp_dist) / "index.html"
-    out.append({"code": "miniapp", "title": "Mini App", "status": OK if dist.exists() else ERROR,
-                "detail": "Сборка найдена." if dist.exists() else "Сборка не найдена: выполните npm run build в папке webapp."})
+    from ..version import webapp_state
+    state, detail = webapp_state(s.webapp_dist)
+    out.append({"code": "miniapp", "title": "Mini App",
+                "status": OK if state == "ok" else ERROR if state == "missing" else WARN, "detail": detail})
     try:
         with db.read() as c:
             c.execute("SELECT 1").fetchone()

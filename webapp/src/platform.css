@@ -471,3 +471,6 @@ button.row-card:hover { border-color: var(--accent); }
 .invite-text span { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
 .invite-link { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; background: var(--raise); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; word-break: break-all; color: var(--ink2); }
 .invite .btn { align-self: flex-start; }
+
+.update-note { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.update-note p { margin: 0; }

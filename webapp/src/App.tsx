@@ -17,6 +17,7 @@ import { Onboarding, SearchOverlay } from "./pages/Overlays";
 import { Profile, Settings } from "./pages/Profile";
 import { Studio } from "./pages/Studio";
 import { tg } from "./telegram";
+import { BUILD } from "./version";
 import type { Me, Nav, Route } from "./types";
 import { BalanceChip, ErrorBox, Loading, Logo, Sheet } from "./ui";
 import { CreateMenu } from "./pages/Overlays";
@@ -52,11 +53,14 @@ export default function App() {
   const [quick, setQuick] = useState(false);
   const [search, setSearch] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);  // на сервере новая сборка, а у человека открыта старая из кеша
   const route = stack[stack.length - 1];
 
   const refreshMe = useCallback(() => { api.me().then((m) => { setMe(m); setError(null); }).catch((e: Error) => setError(e.message)); }, []);
   useEffect(refreshMe, [refreshMe]);
   useEffect(() => { if (me && !sessionStorage.getItem("nolla-open")) { sessionStorage.setItem("nolla-open", "1"); api.eventOpen().catch(() => undefined); } }, [me]);
+  // Старое приложение из кеша: на сервере лежит сборка новее той, что открылась.
+  useEffect(() => { api.version().then((v) => setStale((v.webapp_build ?? v.build) !== BUILD)).catch(() => undefined); }, []);
   useEffect(() => { document.documentElement.dataset.theme = route.name === "admin" ? "light" : "dark"; }, [route.name]);
 
   const nav: Nav = useMemo(() => ({
@@ -148,6 +152,12 @@ export default function App() {
             <BalanceChip balance={me.balance} onClick={() => nav.go({ name: "balance" })} />
           </header>
           <main className="pf-page" key={pageKey}>
+            {stale && (
+              <div className="notice bad update-note" role="alert">
+                <p>Вышла новая версия приложения, а у вас открыта прежняя.</p>
+                <button className="btn orange sm" onClick={() => window.location.reload()}>Обновить</button>
+              </div>
+            )}
             {me.status === "blocked" && <div className="notice bad"><p>Ваш аккаунт заблокирован: создание новых работ недоступно. Обратитесь в поддержку.</p></div>}
             {route.name === "home" && <Home />}
             {route.name === "ideas" && <Ideas />}

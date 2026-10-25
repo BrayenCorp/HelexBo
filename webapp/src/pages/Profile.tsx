@@ -7,8 +7,9 @@ import { Back, Dropdown, Hdr } from "../pf";
 import { openExternal, tgPhoto } from "../telegram";
 import type { Prefs } from "../types";
 import { Avatar, Modal, Toggle, useLoad } from "../ui";
+import { APP_VERSION, BUILD } from "../version";
 
-export const APP_VERSION = "1.0";
+
 
 /** Профиль: кто вы, сколько создали и сколько токенов. Всё техническое — в настройках. */
 export function Profile() {
@@ -64,6 +65,7 @@ export function Settings() {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const sum = useLoad(() => api.tokens(), [me.balance]);
+  const srv = useLoad(() => api.version(), []);  // сборка на сервере — чтобы видеть, не открылась ли старая из кеша
   const profile = useLoad(() => api.profile(), []);
 
   async function save(patch: Partial<Prefs>) {
@@ -136,7 +138,8 @@ export function Settings() {
       <section className="set-group">
         <h2 className="set-title">О приложении</h2>
         <div className="set-rows">
-          <div className="set-row"><span>Версия</span><b>Nolla AI {APP_VERSION}</b></div>
+          <div className="set-row"><span>Версия</span><b>Nolla AI {APP_VERSION} · сборка {BUILD}</b></div>
+          <div className="set-row"><span>Сервер</span><b className={srv.data && srv.data.build !== BUILD ? "" : "muted"}>{srv.data ? `сборка ${srv.data.build}` : "…"}</b></div>
           {profile.data?.support_url && <div className="set-row"><span>Поддержка</span><button className="link" onClick={() => openExternal(profile.data!.support_url)}>Написать</button></div>}
           <div className="set-row"><span>Условия использования</span><b className="muted">В разработке</b></div>
           <div className="set-row"><span>Политика конфиденциальности</span><b className="muted">В разработке</b></div>

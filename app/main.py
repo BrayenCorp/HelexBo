@@ -42,6 +42,12 @@ async def amain() -> None:
     if closed:
         log.warning("Закрыто %s зависших заказов (кредиты возвращены)", closed)
 
+    from .version import BUILD, webapp_state
+
+    state, detail = webapp_state(settings.webapp_dist)
+    log.info("Код сервера: сборка %s", BUILD)
+    (log.info if state == "ok" else log.error)("Mini App: %s", detail)
+
     if settings.ai_mode == "mock":
         log.warning("AI_MODE=mock: результаты — ТЕСТОВЫЕ заглушки, не настоящая генерация")
     if settings.payments_mode == "test":

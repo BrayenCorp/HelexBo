@@ -95,6 +95,7 @@ export const api = {
   setNotify: (on: boolean) => send<{ notify_chat: boolean }>("PUT", "/api/me/settings", { notify_chat: on }),
   deleteMyMedia: () => json<{ deleted_files: number }>("/api/me/media", { method: "DELETE" }),
   meta: () => json<PlatformMeta>("/api/platform/meta"),
+  version: () => json<{ version: string; build: string; webapp_build: string | null }>("/api/version"),
   previews: () => json<string[]>("/api/previews"),
   ideas: (tag?: string, q?: string) => {
     const p = new URLSearchParams();

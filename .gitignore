@@ -4,4 +4,6 @@ __pycache__/
 *.pyc
 .venv/
 webapp/node_modules/
-webapp/dist/
+
+# ВАЖНО: webapp/dist НЕ игнорируем — Railway не собирает Mini App сам,
+# на сервер попадает ровно та сборка, которую вы закоммитили.
