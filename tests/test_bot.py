@@ -136,7 +136,9 @@ class BotTest(BaseTest):
         self.assertNotIn("🎙 Создать аудио", labels)  # аудио не делаем
         self.assertTrue(any("Открыть" in l for l in labels))
         web = [b for row in self.last()["markup"].inline_keyboard for b in row if b.web_app]
-        self.assertEqual(web[0].web_app.url, "https://app.example")
+        # В адресе всегда есть номер сборки — иначе Telegram открывает приложение из кеша.
+        from app.version import BUILD
+        self.assertEqual(web[0].web_app.url, f"https://app.example?v={BUILD}")
 
     def test_photo_flow_with_model_and_price(self):
         self.tap("mk:new:photo")

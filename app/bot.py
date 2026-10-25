@@ -71,11 +71,21 @@ def card_emoji(t: dict) -> str:
     return TAG_EMOJI.get(t.get("tag") or "") or SECTION_EMOJI.get(t.get("section") or "", "") or "✨"
 
 
+def webapp_link(ctx: AppContext, slug: str = "") -> str:
+    """Адрес Mini App с номером сборки.
+
+    Telegram кеширует открытое приложение очень цепко: без меняющегося адреса человек после
+    обновления видит прежнюю версию. Поэтому в ссылку всегда добавляем ?v=<сборка>.
+    """
+    base = ctx.settings.webapp_url.rstrip("/")
+    q = f"?v={BUILD}" + (f"&slug={slug}" if slug else "")
+    return base + q
+
+
 def open_button(ctx: AppContext, text: str, slug: str = "") -> InlineKeyboardButton:
     """Кнопка, открывающая Mini App (при необходимости — сразу на нужной карточке)."""
     if ctx.settings.webapp_url:
-        url = ctx.settings.webapp_url.rstrip("/") + (f"?slug={slug}" if slug else "")
-        return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))
+        return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=webapp_link(ctx, slug)))
     return InlineKeyboardButton(text=text, callback_data="menu:app")
 
 
@@ -256,8 +266,10 @@ async def cmd_version(message: Message, ctx: AppContext):
     await message.answer(
         f"🧩 <b>Сборка {BUILD}</b>\n"
         f"Приветствие: {esc(WELCOME_TEXT.splitlines()[0])}\n"
-        f"Кнопок в меню: {sum(len(r) for r in main_menu(ctx).inline_keyboard)}\n\n"
-        "Если здесь не та сборка, которую вы залили, — значит отвечает старый процесс бота."
+        f"Кнопок в меню: {sum(len(r) for r in main_menu(ctx).inline_keyboard)}\n"
+        f"Адрес приложения: {esc(webapp_link(ctx)) if ctx.settings.webapp_url else 'не задан (WEBAPP_URL)'}\n\n"
+        "Если здесь не та сборка, которую вы залили, — значит отвечает старый процесс бота: "
+        "где-то запущен второй экземпляр с тем же токеном (локальный python -m app.main или старый сервис)."
     )
 
 
@@ -709,4 +721,4 @@ async def setup_bot_profile(bot: Bot, ctx: AppContext) -> None:
     log.info("Бот: сборка %s, приветствие «%s»", BUILD, WELCOME_TEXT.splitlines()[0])
     if ctx.settings.webapp_url:
         await step("кнопка меню", bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(text=BRAND, web_app=WebAppInfo(url=ctx.settings.webapp_url))))
+            menu_button=MenuButtonWebApp(text=BRAND, web_app=WebAppInfo(url=webapp_link(ctx)))))

@@ -60,7 +60,17 @@ export default function App() {
   useEffect(refreshMe, [refreshMe]);
   useEffect(() => { if (me && !sessionStorage.getItem("nolla-open")) { sessionStorage.setItem("nolla-open", "1"); api.eventOpen().catch(() => undefined); } }, [me]);
   // Старое приложение из кеша: на сервере лежит сборка новее той, что открылась.
-  useEffect(() => { api.version().then((v) => setStale((v.webapp_build ?? v.build) !== BUILD)).catch(() => undefined); }, []);
+  // Бот открывает приложение по адресу с ?v=<сборка>; если он не совпал с нашим — один раз
+  // перезагружаемся начисто (флаг в sessionStorage защищает от бесконечного круга).
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("v");
+    if (want && want !== BUILD && sessionStorage.getItem("nolla-reload") !== want) {
+      sessionStorage.setItem("nolla-reload", want);
+      window.location.reload();
+      return;
+    }
+    api.version().then((v) => setStale((v.webapp_build ?? v.build) !== BUILD)).catch(() => undefined);
+  }, []);
   useEffect(() => { document.documentElement.dataset.theme = route.name === "admin" ? "light" : "dark"; }, [route.name]);
 
   const nav: Nav = useMemo(() => ({
