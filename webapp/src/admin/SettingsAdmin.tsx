@@ -15,14 +15,20 @@ const diff = (a: Record<string, unknown>, b: Record<string, unknown>) => Object.
 
 export function SettingsAdmin() {
   const [tab, setTab] = useState<"main" | "audit" | "export" | "access">("main");
-  const st = useLoad(() => api.admin.get<{ support_url: string }>("settings"), []);
+  const st = useLoad(() => api.admin.get<{ support_url: string; ideas_channel_url: string; referral_bonus: string }>("settings"), []);
   const cfg = useLoad(() => api.admin.get<Config>("config"), []);
   const [page, setPage] = useState(1);
   const audit = useLoad(() => api.admin.get<Audit>(`audit?page=${page}`), [page]);
   const [support, setSupport] = useState("");
-  useEffect(() => setSupport(st.data?.support_url ?? ""), [st.data]);
+  const [channel, setChannel] = useState("");
+  const [refBonus, setRefBonus] = useState("");
+  useEffect(() => {
+    setSupport(st.data?.support_url ?? "");
+    setChannel(st.data?.ideas_channel_url ?? "");
+    setRefBonus(st.data?.referral_bonus ?? "");
+  }, [st.data]);
   async function save() {
-    try { await api.admin.send("PUT", "settings", { support_url: support }); showToast("Сохранено"); st.reload(); }
+    try { await api.admin.send("PUT", "settings", { support_url: support, ideas_channel_url: channel, referral_bonus: refBonus }); showToast("Сохранено"); st.reload(); }
     catch (e) { showToast(errText(e, "Не удалось сохранить")); }
   }
   return (
@@ -33,6 +39,8 @@ export function SettingsAdmin() {
       {tab === "main" && (
         <Card title="Основные настройки">
           <Field label="Ссылка «Помощь и поддержка»" hint="Например, https://t.me/ваш_аккаунт"><TextInput value={support} onChange={setSupport} placeholder="https://t.me/…" /></Field>
+          <Field label="Канал с идеями и промптами" hint="Кнопка «Посмотреть идеи» в боте ведёт сюда. Пусто — бот покажет идеи прямо в чате."><TextInput value={channel} onChange={setChannel} placeholder="https://t.me/ваш_канал" /></Field>
+          <Field label="Токенов за приглашённого друга" hint="Начисляются пригласившему, когда друг впервые входит. 0 — программа выключена."><TextInput value={refBonus} onChange={setRefBonus} placeholder="20" /></Field>
           {cfg.data && <div className="kpi-rows">
             <div className="kpi-row"><span className="muted">Режим AI</span><b>{cfg.data.ai_mode === "mock" ? "Тестовый (заглушки)" : "Рабочий"}</b></div>
             <div className="kpi-row"><span className="muted">Режим оплаты</span><b>{{ test: "Тестовая", stars: "Telegram Stars", off: "Отключена" }[cfg.data.payments_mode] ?? cfg.data.payments_mode}</b></div>

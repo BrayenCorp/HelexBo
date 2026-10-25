@@ -50,8 +50,35 @@ def register(db: Database, tg_id: int) -> tuple[dict, bool]:
         bonus = site_settings.get_int(conn, "welcome_bonus", 0)
         if bonus > 0:
             credits.apply(conn, tg_id, bonus, "welcome_bonus", note="Стартовый бонус")
+        _reward_referrer(conn, u)
         events.log_conn(conn, "user_registered", tg_id, source=u["source"], bonus=bonus)
         return dict(conn.execute("SELECT * FROM users WHERE tg_id = ?", (tg_id,)).fetchone()), True
+
+
+def _reward_referrer(conn, user) -> None:
+    """Токены тому, кто пригласил: начисляются один раз, когда друг впервые вошёл.
+    Самому себе пригласить нельзя, заблокированным не начисляем."""
+    ref = user["referrer_id"]
+    if not ref or ref == user["tg_id"]:
+        return
+    amount = site_settings.get_int(conn, "referral_bonus", 0)
+    if amount <= 0:
+        return
+    inviter = conn.execute("SELECT tg_id, status FROM users WHERE tg_id = ?", (ref,)).fetchone()
+    if inviter is None or inviter["status"] == "blocked":
+        return
+    credits.apply(conn, ref, amount, "referral_bonus", note=f"Друг присоединился: {user['tg_id']}")
+    events.log_conn(conn, "referral_joined", ref, friend_id=user["tg_id"], amount=amount)
+
+
+def referral_stats(db: Database, tg_id: int) -> dict:
+    """Сколько друзей пришло по ссылке и сколько токенов это принесло."""
+    with db.read() as conn:
+        invited = conn.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (tg_id,)).fetchone()[0]
+        joined = conn.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ? AND registered_at IS NOT NULL", (tg_id,)).fetchone()[0]
+        earned = conn.execute("SELECT COALESCE(SUM(delta), 0) FROM credit_ledger WHERE user_id = ? AND reason = 'referral_bonus'", (tg_id,)).fetchone()[0]
+        bonus = site_settings.get_int(conn, "referral_bonus", 0)
+    return {"invited": invited, "joined": joined, "earned": earned, "bonus": bonus}
 
 
 def mark_welcomed(db: Database, tg_id: int) -> None:

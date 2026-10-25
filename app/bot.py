@@ -23,7 +23,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from .context import AppContext
 from .errors import DomainError, InsufficientCredits
 from . import bot_create as bc
-from .services import catalog, categories, credits, events, methods, orders, payments, templates, users
+from .services import catalog, categories, credits, events, methods, orders, payments, site_settings, templates, users
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -331,10 +331,24 @@ async def _ask_start(message: Message, state: FSMContext, ctx: AppContext, kind:
         await message.answer("🎙 <b>Создание аудио</b>\nВведите текст для озвучки (до 2000 символов).", reply_markup=kb.as_markup())
     elif kind == "video":
         await state.set_state(bc.Make.prompt)
-        await message.answer("🎬 <b>Создание видео</b>\nОтправьте изображение или опишите сцену.", reply_markup=kb.as_markup())
+        await message.answer(
+            "🎬 <b>Создание видео</b>\n\n"
+            "Два способа — выбирайте любой:\n"
+            "1️⃣ <b>Просто напишите</b>, что должно происходить в кадре.\n"
+            "   <i>Например: машина едет по ночному городу, камера плавно приближается</i>\n"
+            "2️⃣ <b>Пришлите фото</b> — сделаю видео из него. В подписи к фото можно добавить, что должно двигаться.\n"
+            "   <i>Например: пусть человек идёт по улице, лёгкий ветер</i>",
+            reply_markup=kb.as_markup())
     else:
         await state.set_state(bc.Make.prompt)
-        await message.answer("📷 <b>Создание фото</b>\nОпишите, что хотите создать. Можно сразу прислать фото — тогда я его изменю.", reply_markup=kb.as_markup())
+        await message.answer(
+            "📷 <b>Создание фото</b>\n\n"
+            "Два способа — выбирайте любой:\n"
+            "1️⃣ <b>Просто напишите</b>, что нарисовать.\n"
+            "   <i>Например: девушка в чёрном костюме на фоне ночного города</i>\n"
+            "2️⃣ <b>Пришлите своё фото</b> и напишите, что с ним сделать.\n"
+            "   <i>Например: замени фон на закат, сделай кинематографичнее</i>",
+            reply_markup=kb.as_markup())
 
 
 @router.callback_query(F.data.startswith("mk:new:"))
@@ -349,7 +363,15 @@ async def cb_make_new(call: CallbackQuery, state: FSMContext, ctx: AppContext):
 
 @router.callback_query(F.data.startswith("mk:ideas"))
 async def cb_ideas(call: CallbackQuery, ctx: AppContext):
-    """Идеи — та же витрина, что и в приложении: её наполняет владелец в админке."""
+    """Идеи: если задан канал с идеями и промптами — отправляем туда, иначе показываем витрину в чате."""
+    channel = site_settings.get_value(ctx.db, "ideas_channel_url")
+    if channel:
+        kb = InlineKeyboardBuilder()
+        kb.row(InlineKeyboardButton(text="💡 Открыть канал с идеями", url=channel))
+        kb.row(open_button(ctx, "🎨 Открыть приложение"))
+        kb.row(InlineKeyboardButton(text="🏠 В меню", callback_data="menu:home"))
+        await call.message.answer("💡 Идеи и готовые промпты собраны в нашем канале — заходите и повторяйте 👇", reply_markup=kb.as_markup())
+        return await call.answer()
     page = int(call.data.split(":")[2]) if len(call.data.split(":")) > 2 else 0
     items = catalog.list_items(ctx.db, "idea", on_ideas=True)
     if not items:  # витрина ещё пустая — показываем тренды и фотосессии

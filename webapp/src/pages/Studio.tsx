@@ -11,7 +11,7 @@ import { Loading, useDebounced, useLoad } from "../ui";
 const DEFAULT_SLUG: Record<string, string> = { photo: "nano-banana-2", video: "seedance-2-0", audio: "eleven" };
 const RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9", "21:9"];
 const RES_IMG = ["1k", "2k", "4k"];
-const RES_VID = ["720p", "1080p"];
+const RES_VID = ["480p", "720p", "1080p"];
 const DURS = ["5", "8", "10", "15"];
 const STYLES: [string, string][] = [["", "Авто"], ["realistic", "Реалистичный"], ["cinematic", "Киноплёнка"], ["luxury", "Люкс"], ["studio", "Студийный"], ["street", "Уличный"], ["portrait", "Портрет"], ["anime", "Аниме"]];
 

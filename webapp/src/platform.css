@@ -109,6 +109,12 @@ button.tile:hover, button.tile.on { border-color: var(--accent); }
 .tile-ph { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #555; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px; text-align: center; }
 .tile-ph svg { opacity: 0.6; }
 .tile-body { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.tile-fav { position: absolute; top: 8px; right: 8px; z-index: 2; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px); color: #fff; opacity: 0.9; }
+.tile-fav:hover { opacity: 1; }
+.tile-fav.on { color: var(--accent); }
+.tile-over { position: absolute; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; gap: 2px; padding: 12px; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(6px); text-align: left; }
+.tile-over b { font-size: 14px; line-height: 1.25; }
+@media (hover: hover) and (min-width: 900px) { .tile:hover .tile-over { display: flex; animation: ddin 0.14s ease both; } }
 .tile-body b { font-size: 14.5px; line-height: 1.25; }
 .tile-body span { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
 .tile-price { margin-top: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--ink2); font-size: 12px; font-weight: 700; margin-top: 2px; }
@@ -445,3 +451,23 @@ button.row-card:hover { border-color: var(--accent); }
 .upl.big { padding: 20px 16px; border-radius: 14px; }
 .upl.big .upl-ic, .upl.big img { width: 64px; height: 64px; }
 .upl.big .grow b { font-size: 16px; }
+
+/* Что умеет приложение + разделы */
+.cap-list { display: flex; flex-direction: column; gap: 10px; }
+.cap-line { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); background: var(--card); border-radius: 14px; padding: 14px; font-size: 14px; line-height: 1.45; color: var(--ink2); }
+.cap-line .cap-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line2); display: grid; place-items: center; color: var(--accent); background: transparent; }
+.sec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 900px) { .sec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.sec-card { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 14px; padding: 14px; }
+.sec-card:hover { border-color: var(--accent); }
+.sec-card .sec-ic { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line2); display: grid; place-items: center; color: var(--accent); margin-bottom: 4px; }
+.sec-card b { font-size: 14.5px; }
+.sec-card span { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+
+/* Приглашение друга */
+.invite { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--line2); background: var(--card); border-radius: 16px; padding: 18px; }
+.invite-text { display: flex; flex-direction: column; gap: 4px; }
+.invite-text b { font-size: 16px; }
+.invite-text span { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.invite-link { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; background: var(--raise); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; word-break: break-all; color: var(--ink2); }
+.invite .btn { align-self: flex-start; }

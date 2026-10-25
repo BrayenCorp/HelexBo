@@ -8,7 +8,7 @@ from ..errors import DomainError
 MAX_PROMPT = 500
 
 FORMATS = {"1:1": "square 1:1", "3:4": "portrait 3:4", "4:3": "landscape 4:3", "9:16": "vertical 9:16", "16:9": "wide 16:9", "21:9": "ultrawide 21:9"}
-RESOLUTIONS = {"1k": "", "2k": "", "4k": "", "720p": "", "1080p": ""}
+RESOLUTIONS = {"1k": "", "2k": "", "4k": "", "480p": "", "720p": "", "1080p": ""}
 DURATIONS = {"5": "", "8": "", "10": "", "15": "", "30": "", "60": ""}
 VOICES = {"alina": "", "maxim": "", "olga": "", "igor": "", "sofia": ""}
 EMOTIONS = {"neutral": "", "joy": "", "calm": "", "solemn": "", "sad": "", "inspire": ""}

@@ -140,7 +140,9 @@ class BotTest(BaseTest):
 
     def test_photo_flow_with_model_and_price(self):
         self.tap("mk:new:photo")
-        self.assertIn("Опишите", self.last()["text"])
+        hint = self.last()["text"]
+        self.assertIn("Просто напишите", hint)      # можно текстом
+        self.assertIn("Пришлите своё фото", hint)   # а можно фото + что с ним сделать
         self.send("кот в космосе")
         self.assertIn("Выберите модель", self.last()["text"])
         pick = self.data_of("Nano Banana 2 ·")
@@ -168,6 +170,7 @@ class BotTest(BaseTest):
 
     def test_video_from_photo(self):
         self.tap("mk:new:video")
+        self.assertIn("Пришлите фото", self.last()["text"])
         self.send(photo="file-1")
         self.assertIn("Выберите модель", self.last()["text"])
         self.tap(self.data_of("Seedance"))
@@ -288,3 +291,21 @@ class BotTest(BaseTest):
         self.assertEqual(len(self.outbox), 1)
         self.assertEqual(self.outbox[0]["text"], B.WELCOME_TEXT)
         self.assertTrue(any(t == B.WELCOME_TEXT for t in first))
+
+
+    def test_ideas_button_opens_channel_when_set(self):
+        from app.services import site_settings
+        site_settings.set_value(self.db, "ideas_channel_url", "https://t.me/nolla_ideas")
+        self.tap("mk:ideas:0")
+        urls = [b.url for row in self.last()["markup"].inline_keyboard for b in row if b.url]
+        self.assertIn("https://t.me/nolla_ideas", urls)
+
+    def test_referral_bonus_for_invited_friend(self):
+        from app.services import credits, users as users_service
+        before = credits.get_balance(self.db, self.UID)
+        users_service.upsert_user(self.db, 777, "friend", "Друг", start_param=f"ref_{self.UID}")
+        users_service.register(self.db, 777)
+        stats = users_service.referral_stats(self.db, self.UID)
+        self.assertEqual((stats["invited"], stats["joined"]), (1, 1))
+        self.assertEqual(credits.get_balance(self.db, self.UID), before + stats["bonus"])
+        self.assertTrue(self.balance_matches_ledger(self.UID))

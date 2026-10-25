@@ -5,6 +5,7 @@ import { Icon } from "./icons";
 import type { IconName } from "./icons";
 import { tokensText } from "./format";
 import type { AiModel, CatalogItem, Order, Route } from "./types";
+import { useApp } from "./ctx";
 import { Skeleton } from "./ui";
 
 /* ------------------------------------------------------------------ ваши фото для обложек
@@ -91,15 +92,22 @@ export function Price({ credits }: { credits: number }) {
   return <span className="tile-price"><Icon name="coin" size={13} />{credits ? tokensText(credits) : "Бесплатно"}</span>;
 }
 
-/** Карточка элемента каталога (эффект, тренд, фотосессия, маркетинг). */
+/** Карточка каталога: только снимок. На телефоне — чистое фото, на компьютере подпись
+    появляется при наведении. Сердечко добавляет в избранное. */
 export function CatalogTile({ item, onOpen }: { item: CatalogItem; onOpen: () => void }) {
+  const { me, toggleFavorite } = useApp();
   const photos = usePreviews();
   const cover = item.preview_url || pickPreview(photos, item.id);
+  const fav = me.favorites.templates.includes(item.id);
   return (
-    <button className="tile" onClick={onOpen}>
+    <button className="tile" onClick={onOpen} aria-label={item.title}>
       <Media url={cover} kind={item.preview_url ? item.preview_kind : "image"} icon={item.kind === "video" ? "film" : "image"} />
-      <span className="tile-flags">{item.kind === "video" ? <span className="pf-badge">Видео</span> : item.is_popular ? <span className="pf-badge w">Популярно</span> : null}</span>
-      <span className="tile-body"><b>{item.title}</b>{item.description && <span>{item.description}</span>}<Price credits={item.price_credits} /></span>
+      <span className="tile-flags">{item.kind === "video" && <span className="pf-badge">Видео</span>}</span>
+      <span className={`tile-fav ${fav ? "on" : ""}`} role="button" aria-label={fav ? "Убрать из избранного" : "В избранное"}
+        onClick={(e) => { e.stopPropagation(); toggleFavorite("template", item.id); }}>
+        <Icon name="heart" size={16} fill={fav} />
+      </span>
+      <span className="tile-over"><b>{item.title}</b><Price credits={item.price_credits} /></span>
     </button>
   );
 }

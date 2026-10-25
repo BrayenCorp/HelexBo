@@ -113,6 +113,8 @@ DEFAULT_SETTINGS = {
     "support_url": "",
     "welcome_bonus": "0",  # 0 — стартовый бонус выключен
     "max_variants": "4",
+    "ideas_channel_url": "",  # ссылка на канал с идеями и промптами
+    "referral_bonus": "20",   # токенов пригласившему за каждого друга
 }
 OLD_DEFAULT_SETTINGS = {  # прежние тексты (R STUDIO, Luma): заменяем только если их не меняли
     "banner_title": ["Ваши лучшие кадры — с помощью AI", "Создавай красивые моменты с AI"],

@@ -131,6 +131,7 @@ def create_app(ctx: AppContext) -> FastAPI:
         prof["favorites"] = favorites.ids(ctx.db, user["id"])
         prof["bot_link"] = f"https://t.me/{ctx.bot_username}" if ctx.bot_username else ""
         prof["ref_link"] = ref_link(user["id"])
+        prof["referral"] = users.referral_stats(ctx.db, user["id"])
         prof["freeform"] = {x["kind"]: {"price": x["price_credits"], "enabled": x["enabled"]} for x in templates.list_system(ctx.db)}
         prof["show_welcome"] = prof["registered"] and not prof["welcomed"]
         with ctx.db.read() as c:
@@ -226,7 +227,9 @@ def create_app(ctx: AppContext) -> FastAPI:
             for sec in ("effect", "trend", "photoshoot", "marketing"):
                 popular += catalog.list_items(ctx.db, sec, popular=True, limit=3)
         recent = [orders.public_order(o) for o in orders.list_user_orders(ctx.db, user["id"], 8)]
-        return {"popular": popular[:10], "ideas": ideas, "trends": catalog.list_items(ctx.db, "trend", limit=8),
+        top = {k: models.public_list(ctx.db, k)[:4] for k in ("photo", "video")}
+        video_cards = [c for c in catalog.list_items(ctx.db, "trend") + catalog.list_items(ctx.db, "effect") if c["kind"] == "video"][:8]
+        return {"models": top, "video_cards": video_cards, "popular": popular[:10], "ideas": ideas, "trends": catalog.list_items(ctx.db, "trend", limit=8),
                 "photoshoots": catalog.list_items(ctx.db, "photoshoot", limit=8), "recent": recent, "demo": s.ai_mode == "mock"}
 
     @app.get("/api/ideas")

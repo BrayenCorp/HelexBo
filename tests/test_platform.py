@@ -721,3 +721,50 @@ class AdminDashboardTest(BaseTest):
         self.assertEqual(d["users"]["total"], 0)
         self.assertEqual(d["generations"]["total"], 0)
         self.assertEqual(d["recent"], [])
+
+
+class ReferralAndSettingsTest(BaseTest):
+    def test_referral_bonus_once_and_self_invite_ignored(self):
+        from app.services import users as us
+        us.upsert_user(self.db, 2, "friend", "Друг", start_param="ref_1")
+        before = credits.get_balance(self.db, 1)
+        us.register(self.db, 2)
+        stats = us.referral_stats(self.db, 1)
+        self.assertEqual((stats["invited"], stats["joined"], stats["earned"]), (1, 1, 20))
+        self.assertEqual(credits.get_balance(self.db, 1), before + 20)
+        us.register(self.db, 2)  # повторный вход — без второго начисления
+        self.assertEqual(credits.get_balance(self.db, 1), before + 20)
+        us.upsert_user(self.db, 3, "self", "Сам", start_param="ref_3")  # сам себя не приглашает
+        us.register(self.db, 3)
+        self.assertEqual(us.referral_stats(self.db, 3)["earned"], 0)
+        self.assertTrue(self.balance_matches_ledger(1))
+
+    def test_referral_can_be_switched_off(self):
+        from app.services import site_settings, users as us
+        site_settings.update(self.db, {"referral_bonus": "0"})
+        us.upsert_user(self.db, 4, "f", "Ф", start_param="ref_1")
+        before = credits.get_balance(self.db, 1)
+        us.register(self.db, 4)
+        self.assertEqual(credits.get_balance(self.db, 1), before)
+        self.assertEqual(us.referral_stats(self.db, 1)["invited"], 1)
+
+    def test_video_quality_480p(self):
+        self.add_balance(1, 100)
+        o, _ = make(self, "v480", kind="video", prompt="кот", params={"resolution": "480p"})
+        self.assertEqual(json.loads(o["params"])["resolution"], "480p")
+        with self.assertRaises(DomainError):
+            make(self, "bad", kind="video", prompt="кот", params={"resolution": "240p"})
+
+    def test_ideas_channel_setting(self):
+        from app.services import site_settings
+        site_settings.update(self.db, {"ideas_channel_url": "https://t.me/nolla_ideas"})
+        self.assertEqual(site_settings.get_value(self.db, "ideas_channel_url"), "https://t.me/nolla_ideas")
+
+    def test_favorite_showcase_card(self):
+        from app.services import favorites, showcase_sync
+        showcase_sync.sync(self.db)
+        card = catalog.list_items(self.db, "idea")[0]
+        fav = favorites.set_favorite(self.db, 1, "template", card["id"], True)
+        self.assertIn(card["id"], fav["templates"])
+        fav = favorites.set_favorite(self.db, 1, "template", card["id"], False)
+        self.assertNotIn(card["id"], fav["templates"])

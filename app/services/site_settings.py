@@ -9,6 +9,8 @@ EDITABLE = {
     "support_url": 300,
     "welcome_bonus": 9,
     "max_variants": 2,
+    "ideas_channel_url": 300,   # канал с идеями и промптами: кнопка «Посмотреть идеи» в боте
+    "referral_bonus": 9,        # сколько токенов получает пригласивший, когда друг входит
 }
 
 
@@ -22,11 +24,11 @@ def get_all(db: Database) -> dict:
 def update(db: Database, fields: dict) -> dict:
     from ..errors import DomainError
 
-    for key in ("welcome_bonus", "max_variants"):
+    for key in ("welcome_bonus", "max_variants", "referral_bonus"):
         if key in fields:
             v = str(fields[key]).strip()
-            if not v.isdigit() or (key == "max_variants" and not 1 <= int(v) <= 8) or (key == "welcome_bonus" and int(v) > 100000):
-                raise DomainError("Стартовый бонус — целое число токенов (0 — выключен), число вариантов — от 1 до 8")
+            if not v.isdigit() or (key == "max_variants" and not 1 <= int(v) <= 8) or (key in ("welcome_bonus", "referral_bonus") and int(v) > 100000):
+                raise DomainError("Бонусы — целое число токенов (0 — выключено), число вариантов — от 1 до 8")
     with db.tx() as conn:
         for key, limit in EDITABLE.items():
             if key in fields:

@@ -22,6 +22,7 @@ export interface Me {
   roles: string[];
   modes: { ai: string; payments: string };
   prefs: Prefs;
+  referral: { invited: number; joined: number; earned: number; bonus: number };
   favorites: Favorites;
 }
 
@@ -312,6 +313,8 @@ export interface PlatformMeta {
 }
 
 export interface PlatformHome {
+  models: { photo: AiModel[]; video: AiModel[] };
+  video_cards: CatalogItem[];
   popular: CatalogItem[];
   ideas: CatalogItem[];
   trends: CatalogItem[];
